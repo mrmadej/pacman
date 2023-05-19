@@ -40,6 +40,34 @@ level = boards
 
 color = 'blue'
 
+player_x = 450
+player_y = 663
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self, player_x, player_y) -> None:
+        super().__init__()
+        self.image = pygame.image.load(os.path.join(current_dir, 'pacman.png')).convert_alpha()
+        self.rect = self.image.get_rect()
+        self.rect.x = player_x
+        self.rect.y = player_y
+        
+
+    def _get_event(self, key_pressed):
+        if key_pressed[pygame.K_LEFT]:
+            self.rect.move_ip([-6, 0])
+        if key_pressed[pygame.K_RIGHT]:
+            self.rect.move_ip([6, 0])
+        if key_pressed[pygame.K_UP]:
+            self.rect.move_ip([0, -6])
+        if key_pressed[pygame.K_DOWN]:
+            self.rect.move_ip([0, 6])
+    
+    def update(self, key_pressed):
+        self._get_event(key_pressed)
+
+    def draw(self, screen):
+        screen.blit(self.image, self.rect)
+
 def draw_board():
     num1 = ((HEIGHT - 50) // 32)
     num2 = (WIDTH // 30)
@@ -72,6 +100,8 @@ def draw_board():
                 pygame.draw.line(screen, 'white', (j * num2, i * num1 + (0.5 * num1)),
                                  (j * num2 + num2, i * num1 + (0.5 * num1)), 3)
 
+
+player = Player(WIDTH // 2, HEIGHT // 2)
 
 screen.fill((0, 0, 0))
 is_game_running = False
@@ -106,6 +136,9 @@ while window_open:
         screen.fill((0, 0, 0))
         # Rysowanie planszy
         draw_board()
+        player.draw(screen)
+        key_pressed = pygame.key.get_pressed()
+
         
 
     # Aktualizacja ekranu
