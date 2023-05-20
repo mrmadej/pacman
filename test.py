@@ -1,7 +1,9 @@
-import pygame, os
-from board import *
+import pygame
+import os
 import math
+from board import *
 
+# Inicjalizacja Pygame
 pygame.init()
 
 window_open = True
@@ -12,10 +14,8 @@ PI = math.pi
 
 # Ustalenie ścieżki do obrazka
 current_dir = os.path.dirname(os.path.abspath(__file__))
-current_dir = os.path.join(current_dir, 'Pacman_images') 
+current_dir = os.path.join(current_dir, 'Pacman_images')
 image_path = os.path.join(current_dir, 'Menu_background.jpg')
-
-
 
 # otwieranie okienka
 screen = pygame.display.set_mode((WIDTH, HEIGHT), 0, 32)
@@ -39,8 +39,9 @@ button_rect = pygame.Rect(button_x, button_y, button_width, button_height)
 # obrazki pacmana załadowane do tablicy
 # z tego będą animacje
 pacman_images = []
-for i in range (1, 5):
-    pacman_images.append(pygame.transform.scale(pygame.image.load(os.path.join(current_dir, f'{i}.png')).convert_alpha(), (45, 45)))
+for i in range(1, 5):
+    pacman_images.append(
+        pygame.transform.scale(pygame.image.load(os.path.join(current_dir, f'{i}.png')).convert_alpha(), (45, 45)))
 
 level = boards
 
@@ -49,33 +50,47 @@ color = 'blue'
 player_x = 450
 player_y = 663
 
+
 class Player(pygame.sprite.Sprite):
     def __init__(self, player_x, player_y) -> None:
         super().__init__()
-        self.image = pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'pacman.png')).convert_alpha(), (40, 40))
+        self.image = pygame.transform.scale(
+            pygame.image.load(os.path.join(current_dir, 'pacman.png')).convert_alpha(), (40, 40))
         self.rect = self.image.get_rect()
         self.rect.x = player_x
         self.rect.y = player_y
-        
+        self.frame_index = 0
+
     def _get_event(self, key_pressed):
         if key_pressed[pygame.K_LEFT]:
-            self.image = pygame.transform.rotate(pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'pacman.png')).convert_alpha(), (40, 40)), 180)
+            self.image = pygame.transform.rotate(
+                pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'pacman.png')).convert_alpha(),
+                                       (40, 40)), 180)
             self.rect.move_ip([-1, 0])
         if key_pressed[pygame.K_RIGHT]:
-            self.image = pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'pacman.png')).convert_alpha(), (40, 40))
+            self.image = pygame.transform.scale(
+                pygame.image.load(os.path.join(current_dir, 'pacman.png')).convert_alpha(), (40, 40))
             self.rect.move_ip([1, 0])
         if key_pressed[pygame.K_UP]:
-            self.image = pygame.transform.rotate(pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'pacman.png')).convert_alpha(), (40, 40)), 90)
+            self.image = pygame.transform.rotate(
+                pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'pacman.png')).convert_alpha(),
+                                       (40, 40)), 90)
             self.rect.move_ip([0, -1])
         if key_pressed[pygame.K_DOWN]:
-            self.image = pygame.transform.rotate(pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'pacman.png')).convert_alpha(), (40, 40)), -90)
+            self.image = pygame.transform.rotate(
+                pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'pacman.png')).convert_alpha(),
+                                       (40, 40)), -90)
             self.rect.move_ip([0, 1])
-    
+
     def update(self, key_pressed):
         self._get_event(key_pressed)
+        # Aktualizacja animacji
+        self.frame_index = (self.frame_index + 1) % len(pacman_images)
 
     def draw(self, screen):
-        screen.blit(self.image, self.rect)
+        current_image = pacman_images[self.frame_index]
+        screen.blit(current_image, self.rect)
+
 
 def draw_board():
     num1 = ((HEIGHT - 50) // 32)
@@ -93,14 +108,15 @@ def draw_board():
                 pygame.draw.line(screen, color, (j * num2, i * num1 + (0.5 * num1)),
                                  (j * num2 + num2, i * num1 + (0.5 * num1)), 3)
             if level[i][j] == 5:
-                pygame.draw.arc(screen, color, [(j * num2 - (num2 * 0.4)) - 2, (i * num1 + (0.5 * num1)), num2, num1],
+                pygame.draw.arc(screen, color,
+                                [(j * num2 - (num2 * 0.4)) - 2, (i * num1 + (0.5 * num1)), num2, num1],
                                 0, PI / 2, 3)
             if level[i][j] == 6:
                 pygame.draw.arc(screen, color,
                                 [(j * num2 + (num2 * 0.5)), (i * num1 + (0.5 * num1)), num2, num1], PI / 2, PI, 3)
             if level[i][j] == 7:
                 pygame.draw.arc(screen, color, [(j * num2 + (num2 * 0.5)), (i * num1 - (0.4 * num1)), num2, num1], PI,
-                                3 * PI / 2, 3)
+                                 3 * PI / 2, 3)
             if level[i][j] == 8:
                 pygame.draw.arc(screen, color,
                                 [(j * num2 - (num2 * 0.4)) - 2, (i * num1 - (0.4 * num1)), num2, num1], 3 * PI / 2,
@@ -129,14 +145,11 @@ while window_open:
             if button_rect.collidepoint(mouse_pos):
                 is_game_running = True
 
-    
-    
     screen.fill((0, 0, 0))  # Czyszczenie ekranu
-    
+
     # Rysowanie na ekranie
     screen.blit(background_image, (90.5, 0))  # Wyświetlanie obrazka tła
     screen.blit(button_image, button_rect)  # Wyświetlanie obrazka na przycisku
-
 
     if is_game_running:
         # Renderowanie planszy gry
@@ -148,11 +161,11 @@ while window_open:
         player.draw(screen)
         key_pressed = pygame.key.get_pressed()
         player.update(key_pressed)
-        
 
     # Aktualizacja ekranu
     pygame.display.flip()
-    
 
+    # Opóźnienie
+    pygame.time.delay(100)
 
 pygame.quit()
