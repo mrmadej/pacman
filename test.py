@@ -54,8 +54,9 @@ class Player(pygame.sprite.Sprite):
     def __init__(self, player_x, player_y) -> None:
         super().__init__()
         self.images = pacman_images
-        self.index = 0
-        self.image = self.images[self.index]
+        #self.index = 0
+        #self.image = self.images[self.index]
+        self.image = pacman_images[0]
         self.rect = self.image.get_rect()
         self.rect.x = player_x
         self.rect.y = player_y

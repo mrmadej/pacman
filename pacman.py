@@ -9,13 +9,13 @@ window_open = True
 WIDTH = 900
 HEIGHT = 950
 PI = math.pi
+PLAYER_X = 450
+PLAYER_Y = 663
 
 # Ustalenie ścieżki do obrazka
 current_dir = os.path.dirname(os.path.abspath(__file__))
 current_dir = os.path.join(current_dir, 'Pacman_images') 
 image_path = os.path.join(current_dir, 'Menu_background.jpg')
-
-
 
 # otwieranie okienka
 screen = pygame.display.set_mode((WIDTH, HEIGHT), 0, 32)
@@ -46,8 +46,9 @@ level = boards
 
 color = 'blue'
 
-player_x = 450
-player_y = 663
+
+
+counter = 0
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, player_x, player_y) -> None:
@@ -65,22 +66,30 @@ class Player(pygame.sprite.Sprite):
     def _get_event(self, key_pressed):
         if key_pressed[pygame.K_LEFT]:
             self.current_rotation = 3
-            self.rect.move_ip([-1, 0])
+            self.rect.move_ip([-2, 0])
         if key_pressed[pygame.K_RIGHT]:
             self.current_rotation = 1
-            self.rect.move_ip([1, 0])
+            self.rect.move_ip([2, 0])
         if key_pressed[pygame.K_UP]:
             self.current_rotation = 4
-            self.rect.move_ip([0, -1])
+            self.rect.move_ip([0, -2])
         if key_pressed[pygame.K_DOWN]:
             self.current_rotation = 2
-            self.rect.move_ip([0, 1])
+            self.rect.move_ip([0, 2])
     
     def animation(self):
-        pass
+        if self.current_rotation == 1:
+            self.image = pacman_images[counter // 5]
+        elif self.current_rotation == 2:
+            self.image = pygame.transform.rotate(pacman_images[counter // 5], -90)
+        elif self.current_rotation == 3:
+            self.image = pygame.transform.rotate(pacman_images[counter // 5], 180)
+        elif self.current_rotation == 4:
+            self.image = pygame.transform.rotate(pacman_images[counter // 5], 90)
 
     def update(self, key_pressed):
         self._get_event(key_pressed)
+        self.animation()
 
     def draw(self, screen):
         screen.blit(self.image, self.rect)
@@ -118,10 +127,12 @@ def draw_board():
                                  (j * num2 + num2, i * num1 + (0.5 * num1)), 3)
 
 
-player = Player(WIDTH // 2, HEIGHT // 2)
+player = Player(PLAYER_X, PLAYER_Y)
 
 screen.fill((0, 0, 0))
 is_game_running = False
+
+clock = pygame.time.Clock()
 
 while window_open:
     # wyłączanie gry
@@ -137,7 +148,10 @@ while window_open:
             if button_rect.collidepoint(mouse_pos):
                 is_game_running = True
 
-    
+    if counter < 19:
+        counter += 1
+    else:
+        counter = 0
     
     screen.fill((0, 0, 0))  # Czyszczenie ekranu
     
@@ -160,7 +174,7 @@ while window_open:
 
     # Aktualizacja ekranu
     pygame.display.flip()
-    
+    clock.tick(60)
 
 
 pygame.quit()
