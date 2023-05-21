@@ -52,25 +52,33 @@ player_y = 663
 class Player(pygame.sprite.Sprite):
     def __init__(self, player_x, player_y) -> None:
         super().__init__()
-        self.image = pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'pacman.png')).convert_alpha(), (40, 40))
+        self.image = pacman_images[0]
         self.rect = self.image.get_rect()
         self.rect.x = player_x
         self.rect.y = player_y
+        # 1 - prawo
+        # 2 - dół
+        # 3 - lewo
+        # 4 - góra
+        self.current_rotation = 1
         
     def _get_event(self, key_pressed):
         if key_pressed[pygame.K_LEFT]:
-            self.image = pygame.transform.rotate(pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'pacman.png')).convert_alpha(), (40, 40)), 180)
+            self.current_rotation = 3
             self.rect.move_ip([-1, 0])
         if key_pressed[pygame.K_RIGHT]:
-            self.image = pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'pacman.png')).convert_alpha(), (40, 40))
+            self.current_rotation = 1
             self.rect.move_ip([1, 0])
         if key_pressed[pygame.K_UP]:
-            self.image = pygame.transform.rotate(pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'pacman.png')).convert_alpha(), (40, 40)), 90)
+            self.current_rotation = 4
             self.rect.move_ip([0, -1])
         if key_pressed[pygame.K_DOWN]:
-            self.image = pygame.transform.rotate(pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'pacman.png')).convert_alpha(), (40, 40)), -90)
+            self.current_rotation = 2
             self.rect.move_ip([0, 1])
     
+    def animation(self):
+        pass
+
     def update(self, key_pressed):
         self._get_event(key_pressed)
 

@@ -39,8 +39,8 @@ button_rect = pygame.Rect(button_x, button_y, button_width, button_height)
 # z tego będą animacje
 pacman_images = []
 for i in range(1, 5):
-    pacman_images.append(
-        pygame.transform.scale(pygame.image.load(os.path.join(current_dir, f'{i}.png')).convert_alpha(), (45, 45)))
+    pacman_images.append(pygame.transform.scale(pygame.image.load(os.path.join(current_dir, f'{i}.png')).convert_alpha(),
+                                                (45, 45)))
 
 level = boards
 
@@ -48,36 +48,51 @@ color = 'blue'
 
 player_x = 450
 player_y = 663
-
+counter = 0
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, player_x, player_y) -> None:
         super().__init__()
-        self.images = []
-        for image in pacman_images:
-            self.images.append(image)
-            self.images.append(pygame.transform.flip(image, True, False))
-        self.frame_index = 0
-        self.image = self.images[self.frame_index]
+        self.images = pacman_images
+        self.index = 0
+        self.image = self.images[self.index]
         self.rect = self.image.get_rect()
         self.rect.x = player_x
         self.rect.y = player_y
+        # 1 - prawo
+        # 2 - dół
+        # 3 - lewo
+        # 4 - góra
+        self.current_rotation = 1
 
     def _get_event(self, key_pressed):
         if key_pressed[pygame.K_LEFT]:
-            self.rect.move_ip([-1, 0])
+            self.current_rotation = 3
+            self.rect.move_ip([-2, 0])
         if key_pressed[pygame.K_RIGHT]:
-            self.rect.move_ip([1, 0])
+            self.current_rotation = 1
+            self.rect.move_ip([2, 0])
         if key_pressed[pygame.K_UP]:
-            self.rect.move_ip([0, -1])
+            self.current_rotation = 4
+            self.rect.move_ip([0, -2])
         if key_pressed[pygame.K_DOWN]:
-            self.rect.move_ip([0, 1])
+            self.current_rotation = 2
+            self.rect.move_ip([0, 2])
+
+    def animation(self):
+        if self.current_rotation == 1:
+            self.image = pacman_images[counter // 5]
+        elif self.current_rotation == 2:
+            self.image = pygame.transform.rotate(pacman_images[counter // 5], -90)
+        elif self.current_rotation == 3:
+            self.image = pygame.transform.rotate(pacman_images[counter // 5], 180)
+        elif self.current_rotation == 4:
+            self.image = pygame.transform.rotate(pacman_images[counter // 5], 90)
+        
 
     def update(self, key_pressed):
         self._get_event(key_pressed)
-        # Aktualizacja animacji
-        self.frame_index = (self.frame_index + 1) % len(self.images)
-        self.image = self.images[self.frame_index]
+        self.animation()
 
     def draw(self, screen):
         screen.blit(self.image, self.rect)
@@ -120,6 +135,7 @@ player = Player(WIDTH // 2, HEIGHT // 2)
 
 screen.fill((0, 0, 0))
 is_game_running = False
+
 clock = pygame.time.Clock()
 
 while window_open:
@@ -135,7 +151,10 @@ while window_open:
             mouse_pos = pygame.mouse.get_pos()
             if button_rect.collidepoint(mouse_pos):
                 is_game_running = True
-
+    if counter < 19:
+        counter += 1
+    else:
+        counter = 0
     screen.fill((0, 0, 0))  # Czyszczenie ekranu
 
     # Rysowanie na ekranie
