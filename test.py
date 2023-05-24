@@ -1,22 +1,25 @@
 import pygame, os
 from board import *
 import math
+import logging
 
 pygame.init()
 
 window_open = True
 # wymiary okna
 WIDTH = 900
-HEIGHT = 950
+HEIGHT = 950 + 24
 PI = math.pi
-PLAYER_X = 450
-PLAYER_Y = 663
 CENTER_X_PLAYER = 23
 CENTER_Y_PLAYER = 24
+PLAYER_X = 463 - CENTER_X_PLAYER
+PLAYER_Y = 642 + CENTER_Y_PLAYER
 PRAWO = 0
 DOL = 1
 LEWO = 2
 GORA = 3
+TILE_Y_LEN = ((HEIGHT - 50) // 33)
+TILE_X_LEN = (WIDTH // 30)
 
 
 # Ustalenie ścieżki do obrazka
@@ -64,10 +67,10 @@ class Player(pygame.sprite.Sprite):
         super().__init__()
         self.image = pacman_images[0]
         self.rect = self.image.get_rect()
-        self.rect.x = player_x
-        self.rect.y = player_y
+        self.rect.x = 442
+        self.rect.y = 662
         # Prawo, dół, lewo, góra
-        self.possible_turns = [False, False, False, False]
+        self.possible_turns = [True, True, True, True]
         # 0 - prawo
         # 1 - dół
         # 2 - lewo
@@ -78,19 +81,19 @@ class Player(pygame.sprite.Sprite):
         if key_pressed[pygame.K_LEFT]:
             self.current_rotation = LEWO
             if self.possible_turns[LEWO] == True:
-                self.rect.move_ip([-2, 0])
+                self.rect.move_ip([-1, 0])
         if key_pressed[pygame.K_RIGHT]:
             self.current_rotation = PRAWO
             if self.possible_turns[PRAWO] == True:
-                self.rect.move_ip([2, 0])
+                self.rect.move_ip([1, 0])
         if key_pressed[pygame.K_UP]:
             self.current_rotation = GORA
             if self.possible_turns[GORA] == True:
-                self.rect.move_ip([0, -2])
+                self.rect.move_ip([0, -1])
         if key_pressed[pygame.K_DOWN]:
             self.current_rotation = DOL
             if self.possible_turns[DOL] == True:
-                self.rect.move_ip([0, 2])
+                self.rect.move_ip([0, 1])
     
     def animation(self):
         if self.current_rotation == PRAWO:
@@ -108,70 +111,90 @@ class Player(pygame.sprite.Sprite):
         # 2 - lewo
         # 3 - góra
         CENTER_X = self.rect.x + CENTER_X_PLAYER
-        CENTER_Y = self.rect.y - CENTER_Y_PLAYER
-        TILE_Y_LEN = ((HEIGHT - 50) // 32)
-        TILE_X_LEN = (WIDTH // 30)
+        CENTER_Y = self.rect.y + CENTER_Y_PLAYER
+
         PLUS_MINUS_NUM = 15
-        if CENTER_X // 30 < 29:
-            if self.current_rotation == PRAWO:
-                if level[CENTER_Y // TILE_Y_LEN][(CENTER_X - PLUS_MINUS_NUM) // TILE_X_LEN] < 3:
-                    self.possible_turns[PRAWO] = True
+
+        if self.current_rotation == PRAWO:
+            if level[CENTER_Y // TILE_Y_LEN][(CENTER_X + (TILE_X_LEN // 2)) // TILE_X_LEN] < 3:
+                self.possible_turns[PRAWO] = True
+        
+        if self.current_rotation == LEWO:
+            if level[CENTER_Y // TILE_Y_LEN][(CENTER_X - (TILE_X_LEN // 2)) // TILE_X_LEN] < 3:
+                self.possible_turns[LEWO] = True
+
+        if self.current_rotation == GORA:
+            if level[(CENTER_Y - (TILE_Y_LEN // 2)) // TILE_Y_LEN][CENTER_X // TILE_X_LEN] < 3:
+                self.possible_turns[GORA] = True
+
+        if self.current_rotation == DOL:
+            if level[(CENTER_Y + (TILE_Y_LEN // 2)) // TILE_Y_LEN][CENTER_X // TILE_X_LEN] < 3:
+                self.possible_turns[DOL] = True
+
+        # if CENTER_X // 30 < 29:
+        #     if self.current_rotation == PRAWO:
+        #         if level[(CENTER_Y // TILE_Y_LEN)][(CENTER_X - PLUS_MINUS_NUM) // TILE_X_LEN] < 3:
+        #             self.possible_turns[PRAWO] = True
             
-            if self.current_rotation == LEWO:
-                if level[CENTER_Y // TILE_Y_LEN][(CENTER_X + PLUS_MINUS_NUM) // TILE_X_LEN] < 3:
-                    self.possible_turns[LEWO] = True
+        #     if self.current_rotation == LEWO:
+        #         if level[(CENTER_Y // TILE_Y_LEN)][(CENTER_X + PLUS_MINUS_NUM) // TILE_X_LEN] < 3:
+        #             self.possible_turns[LEWO] = True
             
-            if self.current_rotation == GORA:
-                if level[(CENTER_Y + PLUS_MINUS_NUM) // TILE_Y_LEN][CENTER_X // TILE_X_LEN] < 3:
-                    self.possible_turns[GORA] = True
+        #     if self.current_rotation == GORA:
+        #         if level[((CENTER_Y + PLUS_MINUS_NUM) // TILE_Y_LEN)][CENTER_X // TILE_X_LEN] < 3:
+        #             self.possible_turns[GORA] = True
             
-            if self.current_rotation == DOL:
-                if level[(CENTER_Y - PLUS_MINUS_NUM) // TILE_Y_LEN][CENTER_X // TILE_X_LEN] < 3:
-                    self.possible_turns[DOL] = True
+        #     if self.current_rotation == DOL:
+        #         if level[((CENTER_Y - PLUS_MINUS_NUM) // TILE_Y_LEN)][CENTER_X // TILE_X_LEN] < 3:
+        #             self.possible_turns[DOL] = True
 
 
-            if self.current_rotation == GORA or self.current_rotation == DOL:
-                if 12 <= CENTER_X % TILE_X_LEN <= 18:
-                    if level[(CENTER_Y + PLUS_MINUS_NUM) // TILE_Y_LEN][CENTER_X // TILE_X_LEN] < 3:
-                        self.possible_turns[DOL] = True
-                    if level[(CENTER_Y - PLUS_MINUS_NUM) // TILE_Y_LEN][CENTER_X // TILE_X_LEN] < 3:
-                        self.possible_turns[GORA] = True
-                if 12 <= CENTER_Y % TILE_Y_LEN <= 18:
-                    if level[CENTER_Y // TILE_Y_LEN][(CENTER_X - TILE_X_LEN) // TILE_X_LEN] < 3:
-                        self.possible_turns[LEWO] = True
-                    if level[CENTER_Y // TILE_Y_LEN][(CENTER_X + TILE_X_LEN) // TILE_X_LEN] < 3:
-                        self.possible_turns[PRAWO] = True
+        #     if self.current_rotation == GORA or self.current_rotation == DOL:
+        #         if 12 <= CENTER_X % TILE_X_LEN <= 18:
+        #             if level[((CENTER_Y + PLUS_MINUS_NUM) // TILE_Y_LEN)][CENTER_X // TILE_X_LEN] < 3:
+        #                 self.possible_turns[DOL] = True
+        #             if level[((CENTER_Y - PLUS_MINUS_NUM) // TILE_Y_LEN)][CENTER_X // TILE_X_LEN] < 3:
+        #                 self.possible_turns[GORA] = True
+        #         if 12 <= CENTER_Y % TILE_Y_LEN <= 18:
+        #             if level[(CENTER_Y // TILE_Y_LEN)][(CENTER_X - TILE_X_LEN) // TILE_X_LEN] < 3:
+        #                 self.possible_turns[LEWO] = True
+        #             if level[(CENTER_Y // TILE_Y_LEN)][(CENTER_X + TILE_X_LEN) // TILE_X_LEN] < 3:
+        #                 self.possible_turns[PRAWO] = True
             
-            if self.current_rotation == PRAWO or self.current_rotation == LEWO:
-                if 12 <= CENTER_Y % TILE_X_LEN <= 18:
-                    if level[(CENTER_Y + TILE_Y_LEN) // TILE_Y_LEN][CENTER_X // TILE_X_LEN] < 3:
-                        self.possible_turns[DOL] = True
-                    if level[(CENTER_Y - TILE_Y_LEN) // TILE_Y_LEN][CENTER_X // TILE_X_LEN] < 3:
-                        self.possible_turns[GORA] = True
-                if 12 <= CENTER_Y % TILE_Y_LEN <= 18:
-                    if level[CENTER_Y // TILE_Y_LEN][(CENTER_X - PLUS_MINUS_NUM) // TILE_X_LEN] < 3:
-                        self.possible_turns[LEWO] = True
-                    if level[CENTER_Y // TILE_Y_LEN][(CENTER_X + PLUS_MINUS_NUM) // TILE_X_LEN] < 3:
-                        self.possible_turns[PRAWO] = True
-        else:
-            self.possible_turns[PRAWO] = True
-            self.possible_turns[LEWO] = True
+        #     if self.current_rotation == PRAWO or self.current_rotation == LEWO:
+        #         if 12 <= CENTER_Y % TILE_X_LEN <= 18:
+        #             if level[((CENTER_Y + PLUS_MINUS_NUM) // TILE_Y_LEN)][CENTER_X // TILE_X_LEN] < 3:
+        #                 self.possible_turns[DOL] = True
+        #             if level[((CENTER_Y + PLUS_MINUS_NUM) // TILE_Y_LEN)][CENTER_X // TILE_X_LEN] < 3:
+        #                 self.possible_turns[GORA] = True
+        #         if 12 <= CENTER_Y % TILE_Y_LEN <= 18:
+        #             if level[(CENTER_Y // TILE_Y_LEN)][(CENTER_X - PLUS_MINUS_NUM) // TILE_X_LEN] < 3:
+        #                 self.possible_turns[LEWO] = True
+        #             if level[(CENTER_Y // TILE_Y_LEN)][(CENTER_X + PLUS_MINUS_NUM) // TILE_X_LEN] < 3:
+        #                 self.possible_turns[PRAWO] = True
+        # else:
+        #     self.possible_turns[PRAWO] = True
+        #     self.possible_turns[LEWO] = True
 
+    def testing_position(self):
+        print("Piksel_x: " + str(self.rect.x + CENTER_X_PLAYER) + "; Piksel_y: " + str(self.rect.y + CENTER_Y_PLAYER) + "; Level_x: " + str((self.rect.y + CENTER_Y_PLAYER) // ((HEIGHT - 50) // 33)) + "; Level_y: " + str((self.rect.x + CENTER_X_PLAYER) // (WIDTH // 30)) + "; Level[x][y]: " + str(level[((self.rect.y + CENTER_Y_PLAYER) // ((HEIGHT - 50) // 33))][((self.rect.x + CENTER_X_PLAYER) // (WIDTH // 30))]) + "\n")
     def update(self, key_pressed):
+        self.testing_position()
         self.position()
         self._get_event(key_pressed)
         self.animation()
-        # pygame.draw.circle(screen, 'white', (self.rect.x + CENTER_X_PLAYER, self.rect.y + CENTER_Y_PLAYER), 2)
+        pygame.draw.circle(screen, 'white', (self.rect.x + CENTER_X_PLAYER, self.rect.y + CENTER_Y_PLAYER), 2)
 
     def draw(self, screen):
         screen.blit(self.image, self.rect)
 
 
 def draw_board():
-    num1 = ((HEIGHT - 50) // 32)
+    num1 = ((HEIGHT - 50) // 33)
     num2 = (WIDTH // 30)
     for i in range(len(level)):
         for j in range(len(level[i])):
+            pygame.draw.polygon(screen, 'red', ((j * num2, i * num1), (j * num2, (i+1) * num1), ((j - 1) * num2, (i+1) * num1), ((j - 1) * num2, i * num1)), 2)
             if level[i][j] == 1:
                 pygame.draw.circle(screen, 'white', (j * num2 + (0.5 * num2), i * num1 + (0.5 * num1)), 4)
             if level[i][j] == 2:
