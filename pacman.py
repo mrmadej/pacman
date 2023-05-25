@@ -2,6 +2,7 @@ import pygame, os
 from board import *
 import math
 import logging
+import sys
 
 pygame.init()
 
@@ -12,8 +13,8 @@ HEIGHT = 950 + 24
 PI = math.pi
 CENTER_X_PLAYER = 23
 CENTER_Y_PLAYER = 24
-PLAYER_X = 463 - CENTER_X_PLAYER
-PLAYER_Y = 642 + CENTER_Y_PLAYER
+PLAYER_X = 442
+PLAYER_Y = 662
 PRAWO = 0
 DOL = 1
 LEWO = 2
@@ -59,7 +60,6 @@ level = boards
 color = 'blue'
 
 
-
 counter = 0
 
 class Player(pygame.sprite.Sprite):
@@ -67,8 +67,12 @@ class Player(pygame.sprite.Sprite):
         super().__init__()
         self.image = pacman_images[0]
         self.rect = self.image.get_rect()
-        self.rect.x = 442
-        self.rect.y = 662
+        self.rect.x = player_x
+        self.rect.y = player_y
+        self.score = 0
+        self.powerup = False
+        self.lifes = 3
+
         # Prawo, dół, lewo, góra
         self.possible_turns = [True, True, True, True]
         # 0 - prawo
@@ -81,20 +85,33 @@ class Player(pygame.sprite.Sprite):
         if key_pressed[pygame.K_LEFT]:
             self.current_rotation = LEWO
             if self.possible_turns[LEWO] == True:
-                self.rect.move_ip([-1, 0])
+                self.rect.move_ip([-2, 0])
         if key_pressed[pygame.K_RIGHT]:
             self.current_rotation = PRAWO
             if self.possible_turns[PRAWO] == True:
-                self.rect.move_ip([1, 0])
+                self.rect.move_ip([2, 0])
         if key_pressed[pygame.K_UP]:
             self.current_rotation = GORA
             if self.possible_turns[GORA] == True:
-                self.rect.move_ip([0, -1])
+                self.rect.move_ip([0, -2])
         if key_pressed[pygame.K_DOWN]:
             self.current_rotation = DOL
             if self.possible_turns[DOL] == True:
-                self.rect.move_ip([0, 1])
+                self.rect.move_ip([0, 2])
     
+    def eating(self):
+        CENTER_X = self.rect.x + CENTER_X_PLAYER
+        CENTER_Y = self.rect.y + CENTER_Y_PLAYER
+        position = level[CENTER_Y // TILE_Y_LEN][CENTER_X // TILE_X_LEN]
+        if position == 1 or position == 2:
+            level[CENTER_Y // TILE_Y_LEN][CENTER_X // TILE_X_LEN] = 0
+            if position == 1:
+                self.score += 10
+            elif position == 2:
+                self.score += 50
+                self.powerup = True
+        hud.update(self.score, self.lifes)
+
     def animation(self):
         if self.current_rotation == PRAWO:
             self.image = pacman_images[counter // 5]
@@ -113,7 +130,7 @@ class Player(pygame.sprite.Sprite):
         CENTER_X = self.rect.x + CENTER_X_PLAYER
         CENTER_Y = self.rect.y + CENTER_Y_PLAYER
 
-        PLUS_MINUS_NUM = 15
+        # PLUS_MINUS_NUM = 15
 
         if self.current_rotation == PRAWO:
             if level[CENTER_Y // TILE_Y_LEN][(CENTER_X + (TILE_X_LEN // 2)) // TILE_X_LEN] < 3:
@@ -131,56 +148,13 @@ class Player(pygame.sprite.Sprite):
             if level[(CENTER_Y + (TILE_Y_LEN // 2)) // TILE_Y_LEN][CENTER_X // TILE_X_LEN] < 3:
                 self.possible_turns[DOL] = True
 
-        # if CENTER_X // 30 < 29:
-        #     if self.current_rotation == PRAWO:
-        #         if level[(CENTER_Y // TILE_Y_LEN)][(CENTER_X - PLUS_MINUS_NUM) // TILE_X_LEN] < 3:
-        #             self.possible_turns[PRAWO] = True
-            
-        #     if self.current_rotation == LEWO:
-        #         if level[(CENTER_Y // TILE_Y_LEN)][(CENTER_X + PLUS_MINUS_NUM) // TILE_X_LEN] < 3:
-        #             self.possible_turns[LEWO] = True
-            
-        #     if self.current_rotation == GORA:
-        #         if level[((CENTER_Y + PLUS_MINUS_NUM) // TILE_Y_LEN)][CENTER_X // TILE_X_LEN] < 3:
-        #             self.possible_turns[GORA] = True
-            
-        #     if self.current_rotation == DOL:
-        #         if level[((CENTER_Y - PLUS_MINUS_NUM) // TILE_Y_LEN)][CENTER_X // TILE_X_LEN] < 3:
-        #             self.possible_turns[DOL] = True
-
-
-        #     if self.current_rotation == GORA or self.current_rotation == DOL:
-        #         if 12 <= CENTER_X % TILE_X_LEN <= 18:
-        #             if level[((CENTER_Y + PLUS_MINUS_NUM) // TILE_Y_LEN)][CENTER_X // TILE_X_LEN] < 3:
-        #                 self.possible_turns[DOL] = True
-        #             if level[((CENTER_Y - PLUS_MINUS_NUM) // TILE_Y_LEN)][CENTER_X // TILE_X_LEN] < 3:
-        #                 self.possible_turns[GORA] = True
-        #         if 12 <= CENTER_Y % TILE_Y_LEN <= 18:
-        #             if level[(CENTER_Y // TILE_Y_LEN)][(CENTER_X - TILE_X_LEN) // TILE_X_LEN] < 3:
-        #                 self.possible_turns[LEWO] = True
-        #             if level[(CENTER_Y // TILE_Y_LEN)][(CENTER_X + TILE_X_LEN) // TILE_X_LEN] < 3:
-        #                 self.possible_turns[PRAWO] = True
-            
-        #     if self.current_rotation == PRAWO or self.current_rotation == LEWO:
-        #         if 12 <= CENTER_Y % TILE_X_LEN <= 18:
-        #             if level[((CENTER_Y + PLUS_MINUS_NUM) // TILE_Y_LEN)][CENTER_X // TILE_X_LEN] < 3:
-        #                 self.possible_turns[DOL] = True
-        #             if level[((CENTER_Y + PLUS_MINUS_NUM) // TILE_Y_LEN)][CENTER_X // TILE_X_LEN] < 3:
-        #                 self.possible_turns[GORA] = True
-        #         if 12 <= CENTER_Y % TILE_Y_LEN <= 18:
-        #             if level[(CENTER_Y // TILE_Y_LEN)][(CENTER_X - PLUS_MINUS_NUM) // TILE_X_LEN] < 3:
-        #                 self.possible_turns[LEWO] = True
-        #             if level[(CENTER_Y // TILE_Y_LEN)][(CENTER_X + PLUS_MINUS_NUM) // TILE_X_LEN] < 3:
-        #                 self.possible_turns[PRAWO] = True
-        # else:
-        #     self.possible_turns[PRAWO] = True
-        #     self.possible_turns[LEWO] = True
 
     def testing_position(self):
         print("Piksel_x: " + str(self.rect.x + CENTER_X_PLAYER) + "; Piksel_y: " + str(self.rect.y + CENTER_Y_PLAYER) + "; Level_x: " + str((self.rect.y + CENTER_Y_PLAYER) // ((HEIGHT - 50) // 33)) + "; Level_y: " + str((self.rect.x + CENTER_X_PLAYER) // (WIDTH // 30)) + "; Level[x][y]: " + str(level[((self.rect.y + CENTER_Y_PLAYER) // ((HEIGHT - 50) // 33))][((self.rect.x + CENTER_X_PLAYER) // (WIDTH // 30))]) + "\n")
     def update(self, key_pressed):
         self.testing_position()
         self.position()
+        self.eating()
         self._get_event(key_pressed)
         self.animation()
         pygame.draw.circle(screen, 'white', (self.rect.x + CENTER_X_PLAYER, self.rect.y + CENTER_Y_PLAYER), 2)
@@ -188,6 +162,25 @@ class Player(pygame.sprite.Sprite):
     def draw(self, screen):
         screen.blit(self.image, self.rect)
 
+class HUD:
+    def __init__(self, score: int, lifes: int,) -> None:
+        self.score = score
+        self.lifes = lifes
+        # Ustawienia tekstu
+        self.font_size = 32
+        self.font_color = (255, 255, 255)  # Biały kolor tekstu
+        self.font = pygame.font.Font(None, self.font_size)
+        self.text_render = self.font.render(("Score: " + str(score)), True, self.font_color, None)
+        self.text_rect = self.text_render.get_rect()
+        self.text_rect.x = 30
+        self.text_rect.y = 934
+    
+    def draw(self):
+        screen.blit(self.text_render, self.text_rect)
+    def update(self, score: int, lifes: int):
+        self.score = score
+        self.lifes = lifes
+        self.text_render = self.font.render(("Score: " + str(score)), True, self.font_color, None)
 
 def draw_board():
     num1 = ((HEIGHT - 50) // 33)
@@ -223,7 +216,9 @@ def draw_board():
                                  (j * num2 + num2, i * num1 + (0.5 * num1)), 3)
 
 
+#konkretyzacja obiektów
 player = Player(PLAYER_X, PLAYER_Y)
+hud = HUD(0, 3)
 
 screen.fill((0, 0, 0))
 is_game_running = False
@@ -263,6 +258,7 @@ while window_open:
         screen.fill((0, 0, 0))
         # Rysowanie planszy
         draw_board()
+        hud.draw()
         player.draw(screen)
         key_pressed = pygame.key.get_pressed()
         player.update(key_pressed)
