@@ -3,6 +3,7 @@ from board import *
 import math
 import logging
 import sys
+import threading
 
 pygame.init()
 
@@ -21,6 +22,7 @@ LEWO = 2
 GORA = 3
 TILE_Y_LEN = ((HEIGHT - 50) // 33)
 TILE_X_LEN = (WIDTH // 30)
+POWERUP_TIME = 10
 
 
 # Ustalenie ścieżki do obrazka
@@ -63,9 +65,9 @@ color = 'blue'
 counter = 0
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, player_x, player_y) -> None:
+    def __init__(self, player_x: int, player_y: int, image: pygame.Surface) -> None:
         super().__init__()
-        self.image = pacman_images[0]
+        self.image = image
         self.rect = self.image.get_rect()
         self.rect.x = player_x
         self.rect.y = player_y
@@ -80,23 +82,28 @@ class Player(pygame.sprite.Sprite):
         # 2 - lewo
         # 3 - góra
         self.current_rotation = PRAWO
-        
+    def time(self):
+        timer = threading.Timer(POWERUP_TIME, self.powerUp)
+        timer.start()
+    def powerUp(self):
+        self.powerup = False
     def _get_event(self, key_pressed):
+        self.position(key_pressed)
         if key_pressed[pygame.K_LEFT]:
-            self.current_rotation = LEWO
             if self.possible_turns[LEWO] == True:
+                self.current_rotation = LEWO
                 self.rect.move_ip([-2, 0])
         if key_pressed[pygame.K_RIGHT]:
-            self.current_rotation = PRAWO
             if self.possible_turns[PRAWO] == True:
+                self.current_rotation = PRAWO
                 self.rect.move_ip([2, 0])
         if key_pressed[pygame.K_UP]:
-            self.current_rotation = GORA
             if self.possible_turns[GORA] == True:
+                self.current_rotation = GORA
                 self.rect.move_ip([0, -2])
         if key_pressed[pygame.K_DOWN]:
-            self.current_rotation = DOL
             if self.possible_turns[DOL] == True:
+                self.current_rotation = DOL
                 self.rect.move_ip([0, 2])
     
     def eating(self):
@@ -110,6 +117,7 @@ class Player(pygame.sprite.Sprite):
             elif position == 2:
                 self.score += 50
                 self.powerup = True
+                self.time()
         hud.update(self.score, self.lifes)
 
     def animation(self):
@@ -121,7 +129,7 @@ class Player(pygame.sprite.Sprite):
             self.image = pygame.transform.rotate(pacman_images[counter // 5], 180)
         elif self.current_rotation == GORA:
             self.image = pygame.transform.rotate(pacman_images[counter // 5], 90)
-    def position(self):
+    def position(self, key_pressed):
         self.possible_turns = [False, False, False, False]
         # 0 - prawo
         # 1 - dół
@@ -130,36 +138,37 @@ class Player(pygame.sprite.Sprite):
         CENTER_X = self.rect.x + CENTER_X_PLAYER
         CENTER_Y = self.rect.y + CENTER_Y_PLAYER
 
-        # PLUS_MINUS_NUM = 15
+        PLUS_MINUS_NUM = 2
 
-        if self.current_rotation == PRAWO:
-            if level[CENTER_Y // TILE_Y_LEN][(CENTER_X + (TILE_X_LEN // 2)) // TILE_X_LEN] < 3:
+        if key_pressed[pygame.K_RIGHT]:
+            if level[CENTER_Y // TILE_Y_LEN][(CENTER_X + (TILE_X_LEN // 2) + PLUS_MINUS_NUM) // TILE_X_LEN] < 3:
                 self.possible_turns[PRAWO] = True
         
-        if self.current_rotation == LEWO:
-            if level[CENTER_Y // TILE_Y_LEN][(CENTER_X - (TILE_X_LEN // 2)) // TILE_X_LEN] < 3:
+        if key_pressed[pygame.K_LEFT]:
+            if level[CENTER_Y // TILE_Y_LEN][(CENTER_X - (TILE_X_LEN // 2) - PLUS_MINUS_NUM) // TILE_X_LEN] < 3:
                 self.possible_turns[LEWO] = True
 
-        if self.current_rotation == GORA:
-            if level[(CENTER_Y - (TILE_Y_LEN // 2)) // TILE_Y_LEN][CENTER_X // TILE_X_LEN] < 3:
+        if key_pressed[pygame.K_UP]:
+            if level[(CENTER_Y - (TILE_Y_LEN // 2) - PLUS_MINUS_NUM) // TILE_Y_LEN][CENTER_X // TILE_X_LEN] < 3:
                 self.possible_turns[GORA] = True
 
-        if self.current_rotation == DOL:
-            if level[(CENTER_Y + (TILE_Y_LEN // 2)) // TILE_Y_LEN][CENTER_X // TILE_X_LEN] < 3:
+        if key_pressed[pygame.K_DOWN]:
+            if level[(CENTER_Y + (TILE_Y_LEN // 2) + PLUS_MINUS_NUM) // TILE_Y_LEN][CENTER_X // TILE_X_LEN] < 3:
                 self.possible_turns[DOL] = True
 
 
+
     def testing_position(self):
-        print("Piksel_x: " + str(self.rect.x + CENTER_X_PLAYER) + "; Piksel_y: " + str(self.rect.y + CENTER_Y_PLAYER) + "; Level_x: " + str((self.rect.y + CENTER_Y_PLAYER) // ((HEIGHT - 50) // 33)) + "; Level_y: " + str((self.rect.x + CENTER_X_PLAYER) // (WIDTH // 30)) + "; Level[x][y]: " + str(level[((self.rect.y + CENTER_Y_PLAYER) // ((HEIGHT - 50) // 33))][((self.rect.x + CENTER_X_PLAYER) // (WIDTH // 30))]) + "\n")
+        #print("Piksel_x: " + str(self.rect.x + CENTER_X_PLAYER) + "; Piksel_y: " + str(self.rect.y + CENTER_Y_PLAYER) + "; Level_x: " + str((self.rect.y + CENTER_Y_PLAYER) // ((HEIGHT - 50) // 33)) + "; Level_y: " + str((self.rect.x + CENTER_X_PLAYER) // (WIDTH // 30)) + "; Level[x][y]: " + str(level[((self.rect.y + CENTER_Y_PLAYER) // ((HEIGHT - 50) // 33))][((self.rect.x + CENTER_X_PLAYER) // (WIDTH // 30))]) + "\n")
+        print("Powerup: " + str(self.powerup))
     def update(self, key_pressed):
         self.testing_position()
-        self.position()
         self.eating()
         self._get_event(key_pressed)
         self.animation()
         pygame.draw.circle(screen, 'white', (self.rect.x + CENTER_X_PLAYER, self.rect.y + CENTER_Y_PLAYER), 2)
 
-    def draw(self, screen):
+    def draw(self, screen: pygame.Surface):
         screen.blit(self.image, self.rect)
 
 class HUD:
@@ -174,14 +183,27 @@ class HUD:
         self.text_rect = self.text_render.get_rect()
         self.text_rect.x = 30
         self.text_rect.y = 934
+        # życia
+        self.image = pacman_images[0]
+        self.lifes_rect = self.image.get_rect()
+        self.lifes_rect.x = WIDTH - 30 - CENTER_X_PLAYER
+        self.lifes_rect.y = self.text_rect.y - CENTER_Y_PLAYER
     
-    def draw(self):
+    def draw(self, screen: pygame.Surface):
         screen.blit(self.text_render, self.text_rect)
+        for i in range(self.lifes):
+            screen.blit(self.image, (self.lifes_rect.x - i * 60, self.lifes_rect.y))
     def update(self, score: int, lifes: int):
         self.score = score
         self.lifes = lifes
         self.text_render = self.font.render(("Score: " + str(score)), True, self.font_color, None)
 
+class Ghost:
+    def __init__(self, image: pygame.Surface, x, y) -> None:
+        self.image = image
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
 def draw_board():
     num1 = ((HEIGHT - 50) // 33)
     num2 = (WIDTH // 30)
@@ -217,7 +239,7 @@ def draw_board():
 
 
 #konkretyzacja obiektów
-player = Player(PLAYER_X, PLAYER_Y)
+player = Player(PLAYER_X, PLAYER_Y, pacman_images[0])
 hud = HUD(0, 3)
 
 screen.fill((0, 0, 0))
@@ -258,7 +280,7 @@ while window_open:
         screen.fill((0, 0, 0))
         # Rysowanie planszy
         draw_board()
-        hud.draw()
+        hud.draw(screen)
         player.draw(screen)
         key_pressed = pygame.key.get_pressed()
         player.update(key_pressed)
