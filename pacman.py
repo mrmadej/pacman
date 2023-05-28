@@ -80,20 +80,24 @@ class Colission:
         CENTER_Y = self.rect.y + CENTER_Y_PLAYER
 
         #if key_pressed[pygame.K_RIGHT]:
-        if level[CENTER_Y // TILE_Y_LEN][(CENTER_X + (TILE_X_LEN // 2) + self.PLUS_MINUS_NUM) // TILE_X_LEN] < 3:
-            self.possible_turns[PRAWO] = True
+        if level[CENTER_Y // TILE_Y_LEN][(CENTER_X + (TILE_X_LEN // 2) + self.PLUS_MINUS_NUM) // TILE_X_LEN] < 3 or (CENTER_X + (TILE_X_LEN // 2) + self.PLUS_MINUS_NUM) % TILE_X_LEN == 0:
+            if (CENTER_Y + TILE_Y_LEN // 2) % TILE_Y_LEN == 0 or (self.PLUS_MINUS_NUM + CENTER_Y - TILE_Y_LEN // 2) % TILE_Y_LEN == 0: 
+                self.possible_turns[PRAWO] = True
         
         #if key_pressed[pygame.K_LEFT]:
-        if level[CENTER_Y // TILE_Y_LEN][(CENTER_X - (TILE_X_LEN // 2) - self.PLUS_MINUS_NUM) // TILE_X_LEN] < 3:
-            self.possible_turns[LEWO] = True
+        if level[CENTER_Y // TILE_Y_LEN][(CENTER_X - (TILE_X_LEN // 2) - self.PLUS_MINUS_NUM) // TILE_X_LEN] < 3 or (CENTER_X - (TILE_X_LEN // 2) - self.PLUS_MINUS_NUM) % TILE_X_LEN == 0:
+            if (CENTER_Y - TILE_Y_LEN // 2) % TILE_Y_LEN == 0 or (self.PLUS_MINUS_NUM - CENTER_Y - TILE_Y_LEN // 2) % TILE_Y_LEN == 0:
+                self.possible_turns[LEWO] = True
 
         #if key_pressed[pygame.K_UP]:
-        if level[(CENTER_Y - (TILE_Y_LEN // 2) - self.PLUS_MINUS_NUM) // TILE_Y_LEN][CENTER_X // TILE_X_LEN] < 3:
-            self.possible_turns[GORA] = True
+        if level[(CENTER_Y - (TILE_Y_LEN // 2) - self.PLUS_MINUS_NUM) // TILE_Y_LEN][CENTER_X // TILE_X_LEN] < 3 or (CENTER_Y - (TILE_Y_LEN // 2) - self.PLUS_MINUS_NUM) % TILE_Y_LEN == 0:
+            if (CENTER_X - TILE_X_LEN // 2) % TILE_X_LEN == 0 or (self.PLUS_MINUS_NUM - CENTER_X - TILE_X_LEN // 2) % TILE_X_LEN == 0: 
+                self.possible_turns[GORA] = True
 
         #if key_pressed[pygame.K_DOWN]:
-        if level[(CENTER_Y + (TILE_Y_LEN // 2) + self.PLUS_MINUS_NUM) // TILE_Y_LEN][CENTER_X // TILE_X_LEN] < 3:
-            self.possible_turns[DOL] = True
+        if level[(CENTER_Y + (TILE_Y_LEN // 2) + self.PLUS_MINUS_NUM) // TILE_Y_LEN][CENTER_X // TILE_X_LEN] < 3 or (CENTER_Y + (TILE_Y_LEN // 2) + self.PLUS_MINUS_NUM) % TILE_Y_LEN == 0:
+            if (CENTER_X + TILE_X_LEN // 2) % TILE_X_LEN == 0 or (self.PLUS_MINUS_NUM + CENTER_X - TILE_X_LEN // 2) % TILE_X_LEN == 0: 
+                self.possible_turns[DOL] = True
 
 class Player(Colission):
     def __init__(self, player_x: int, player_y: int, image: pygame.Surface) -> None:
@@ -157,10 +161,10 @@ class Player(Colission):
 
 
     def testing_position(self):
-        #print("Piksel_x: " + str(self.rect.x + CENTER_X_PLAYER) + "; Piksel_y: " + str(self.rect.y + CENTER_Y_PLAYER) + "; Level_x: " + str((self.rect.y + CENTER_Y_PLAYER) // ((HEIGHT - 50) // 33)) + "; Level_y: " + str((self.rect.x + CENTER_X_PLAYER) // (WIDTH // 30)) + "; Level[x][y]: " + str(level[((self.rect.y + CENTER_Y_PLAYER) // ((HEIGHT - 50) // 33))][((self.rect.x + CENTER_X_PLAYER) // (WIDTH // 30))]) + "\n")
-        print("Powerup: " + str(self.powerup))
+        print("Piksel_x: " + str(self.rect.x + CENTER_X_PLAYER) + "; Piksel_y: " + str(self.rect.y + CENTER_Y_PLAYER) + "; Level_x: " + str((self.rect.y + CENTER_Y_PLAYER) // ((HEIGHT - 50) // 33)) + "; Level_y: " + str((self.rect.x + CENTER_X_PLAYER) // (WIDTH // 30)) + "; Level[x][y]: " + str(level[((self.rect.y + CENTER_Y_PLAYER) // ((HEIGHT - 50) // 33))][((self.rect.x + CENTER_X_PLAYER) // (WIDTH // 30))]) + "\n")
+        #print("Powerup: " + str(self.powerup))
     def update(self, key_pressed):
-        #self.testing_position()
+        self.testing_position()
         self.eating()
         self._get_event(key_pressed)
         self.animation()
@@ -264,7 +268,7 @@ class Ghost(Colission):
                     if self.directionImportance[nextDirection] < direction:
                         last_distance = dist
                         nextDirection = direction
-        print("Next Direction: " + str(nextDirection) + "\nPossible directions: " + str(self.possible_turns))
+        #print("Next Direction: " + str(nextDirection) + "\nPossible directions: " + str(self.possible_turns))
         self.move(nextDirection)
     def eaten_mode(self, target_x: int, target_y: int):
         pass
