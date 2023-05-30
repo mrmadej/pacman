@@ -230,7 +230,7 @@ class Ghost(Collision):
         self.rect.y = y
         self.scatter_target_x = scatter_target_x
         self.scatter_target_y = scatter_target_y
-        self.last_move = -1
+        self.last_move = 0
         # prawo, dół, lewo, góra
         self.directionImportance = [0, 1, 2, 3]
         self.frighten_mode_first = True
@@ -308,18 +308,18 @@ class Ghost(Collision):
         i = 0
         for n in range(len(self.possible_turns)):
             if self.possible_turns[n]:
-                #if (n-self.last_move)
-                i += 1
+                if (n - self.last_move) % 4 == 2:
+                    self.possible_turns[n] = False
         next_direction = self.last_move
-        if self.center_check() and i >= 2:
+        if self.center_check():
             next_direction = random.randint(0, 3)
-            while self.possible_turns[next_direction] == False and (i - self.last_move) % 4 != 2:
+            while self.possible_turns[next_direction] == False:
                 next_direction = random.randint(0, 3)
         self.move(next_direction)
     def update(self):
         self.position()
-        self.scatter_mode()
-        #self.frighten_mode()
+        #self.scatter_mode()
+        self.frighten_mode()
     def center_check(self) -> bool:
         return (self.rect.x + CENTER_X_PLAYER) % TILE_X_LEN == TILE_X_LEN // 2  and (self.rect.y + CENTER_Y_PLAYER) % TILE_Y_LEN == TILE_Y_LEN // 2
 
@@ -385,7 +385,7 @@ while window_open:
             if button_rect.collidepoint(mouse_pos):
                 is_game_running = True
 
-    if counter < 10:
+    if counter < 19:
         counter += 1
     else:
         counter = 0
