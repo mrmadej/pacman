@@ -24,6 +24,18 @@ GORA = 3
 TILE_Y_LEN = ((HEIGHT - 50) // 33)
 TILE_X_LEN = (WIDTH // 30)
 POWERUP_TIME = 10
+EATEN_MODE_TARGET_X = 14 * TILE_X_LEN + TILE_X_LEN // 2
+EATEN_MODE_TARGET_Y = 12 * TILE_Y_LEN + TILE_Y_LEN // 2
+CHASE_MODE = 0
+SCATTER_MODE = 1
+FRIGHTEN_MODE = 2
+EATEN_MODE = 3
+EXIT_CAGE = 4
+BLINKY = 0
+INKY = 1
+PINKY = 2
+CLYDE = 3
+
 
 # Ustalenie ścieżki do obrazka
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -222,10 +234,14 @@ class HUD:
 
 
 class Ghost(Collision):
-    def __init__(self, image: pygame.Surface, x: int, y: int, scatter_target_x: int, scatter_target_y: int) -> None:
+    def __init__(self, image: pygame.Surface, x: int, y: int, scatter_target_x: int, scatter_target_y: int, name: int) -> None:
         super().__init__()
         self.image = image
+        self.ghost_name = name
+        self.image_storage = image
         self.rect = self.image.get_rect()
+        self.start_x = x
+        self.start_y = y
         self.rect.x = x
         self.rect.y = y
         self.scatter_target_x = scatter_target_x
@@ -234,6 +250,8 @@ class Ghost(Collision):
         # prawo, dół, lewo, góra
         self.directionImportance = [0, 1, 2, 3]
         self.frighten_mode_first = True
+        self.eaten = False
+        self.current_mode = EXIT_CAGE
 
     def draw(self, screen: pygame.Surface):
         screen.blit(self.image, self.rect)
@@ -248,11 +266,75 @@ class Ghost(Collision):
             self.rect.move_ip([0, -2])
         if direction == DOL:
             self.rect.move_ip([0, 2])
-
-    def chase_mode(self, target_x: int, target_y: int):
-        pass
-
+    def change_mode(self):
+        if self.current_mode == CHASE_MODE:
+            self.change_mode()
+        elif self.current_mode == SCATTER_MODE:
+            self.scatter_mode()
+        elif self.current_mode == FRIGHTEN_MODE:
+            self.frighten_mode()
+        elif self.current_mode == EATEN_MODE:
+            self.eaten_mode()
+        elif self.current_mode == EXIT_CAGE:
+            self.exit_cage()
+    def chase_mode(self):
+        if self.ghost_name == BLINKY:
+            self.move(self.calculate_distance(player.rect.x + CENTER_X_PLAYER, player.rect.y + CENTER_Y_PLAYER))
+        elif self.ghost_name == INKY:
+            pass
+        elif self.ghost_name == PINKY:
+            direction = player.current_rotation
+            if direction == PRAWO:
+                self.move(self.calculate_distance(player.rect.x + CENTER_X_PLAYER + 2 * TILE_X_LEN, player.rect.y + CENTER_Y_PLAYER))
+            elif direction == LEWO:
+                self.move(self.calculate_distance(player.rect.x + CENTER_X_PLAYER - 2 * TILE_X_LEN, player.rect.y + CENTER_Y_PLAYER))    
+            elif direction == GORA:
+                self.move(self.calculate_distance(player.rect.x + CENTER_X_PLAYER, player.rect.y + CENTER_Y_PLAYER - 2 * TILE_Y_LEN))
+            elif direction == DOL:
+                self.move(self.calculate_distance(player.rect.x + CENTER_X_PLAYER, player.rect.y + CENTER_Y_PLAYER + 2 * TILE_Y_LEN))
+        elif self.ghost_name == CLYDE:
+            pass
     def scatter_mode(self):
+        self.move(self.calculate_distance(self.scatter_target_x, self.scatter_target_y))
+    def exit_cage(self):
+        if self.rect.x + CENTER_X_PLAYER == EATEN_MODE_TARGET_X and self.rect.y == EATEN_MODE_TARGET_Y:
+            self.change_mode(CHASE_MODE)
+        self.move(self.calculate_distance(EATEN_MODE_TARGET_X, EATEN_MODE_TARGET_Y))
+    def eaten_mode(self):
+        if self.eaten == False:
+            self.eaten = True
+            self.image = IMAGE_GHOST_DEAD
+        if self.rect.x + CENTER_X_PLAYER == self.start_x and self.rect.y == self.start_y:
+            self.last_move = -1
+            self.change_mode(EXIT_CAGE)
+
+        self.move(self.calculate_distance(self.start_x, self.start_y))
+        
+
+    def frighten_mode(self):
+        if self.frighten_mode_first:
+            self.frighten_mode_first = False
+            if self.last_move == 1:
+                self.last_move = 3
+            else:
+                self.last_move = (self.last_move + 2) % 4
+        i = 0
+        for n in range(len(self.possible_turns)):
+            if self.possible_turns[n]:
+                if (n - self.last_move) % 4 == 2:
+                    self.possible_turns[n] = False
+        next_direction = self.last_move
+        if self.center_check():
+            next_direction = random.randint(0, 3)
+            while self.possible_turns[next_direction] == False:
+                next_direction = random.randint(0, 3)
+        self.move(next_direction)
+    def calculate_distance(self, target_x, target_y):
+        if self.eaten == True:
+            if level[((self.rect.y + CENTER_Y_PLAYER) // TILE_Y_LEN) + 1][((self.rect.x + CENTER_X_PLAYER) // TILE_Y_LEN)] == 9:
+                self.possible_turns[DOL] = True
+            if level[((self.rect.y + CENTER_Y_PLAYER) // TILE_Y_LEN) - 1][((self.rect.x + CENTER_X_PLAYER) // TILE_Y_LEN)] == 9:
+                self.possible_turns[GORA] = True
         next_direction = self.last_move
         distance = dict()
         last_distance = -1
@@ -277,8 +359,8 @@ class Ghost(Collision):
                                 move_x = -2
                             case 3:
                                 move_y = -2
-                        distance[i] = math.sqrt(abs(self.scatter_target_x - self.rect.x - move_x) ** 2 + abs(
-                            self.scatter_target_y - self.rect.y - move_y) ** 2)
+                        distance[i] = math.sqrt(abs(target_x - self.rect.x - move_x) ** 2 + abs(
+                            target_y - self.rect.y - move_y) ** 2)
                 i += 1
             for direction, dist in distance.items():
                 if last_distance == -1:
@@ -292,34 +374,14 @@ class Ghost(Collision):
                         if self.directionImportance[next_direction] < direction:
                             last_distance = dist
                             next_direction = direction
-            # print("Next Direction: " + str(next_direction) + "\nPossible directions: " + str(self.possible_turns))
-        self.move(next_direction)
-
-    def eaten_mode(self, target_x: int, target_y: int):
-        pass
-
-    def frighten_mode(self):
-        if self.frighten_mode_first:
-            self.frighten_mode_first = False
-            if self.last_move == 1:
-                self.last_move = 3
-            else:
-                self.last_move = (self.last_move + 2) % 4
-        i = 0
-        for n in range(len(self.possible_turns)):
-            if self.possible_turns[n]:
-                if (n - self.last_move) % 4 == 2:
-                    self.possible_turns[n] = False
-        next_direction = self.last_move
-        if self.center_check():
-            next_direction = random.randint(0, 3)
-            while self.possible_turns[next_direction] == False:
-                next_direction = random.randint(0, 3)
-        self.move(next_direction)
+        return next_direction
+    
     def update(self):
         self.position()
         #self.scatter_mode()
-        self.frighten_mode()
+        #self.frighten_mode()
+        #self.eaten_mode()
+        self.chase_mode()
     def center_check(self) -> bool:
         return (self.rect.x + CENTER_X_PLAYER) % TILE_X_LEN == TILE_X_LEN // 2  and (self.rect.y + CENTER_Y_PLAYER) % TILE_Y_LEN == TILE_Y_LEN // 2
 
@@ -360,11 +422,12 @@ def draw_board():
 
 
 image_ghost = pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'blue.png')).convert_alpha(), (45, 45))
-# image_path = os.path.join(current_dir, 'blue.jpg')
+IMAGE_GHOST_DEAD = pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'dead.png')).convert_alpha(), (45, 45))
+
 # konkretyzacja obiektów
 player = Player(PLAYER_X, PLAYER_Y, pacman_images[0])
 hud = HUD(0, 3)
-ghost = Ghost(image_ghost, PLAYER_X + 30, PLAYER_Y, WIDTH, 0)
+ghost = Ghost(image_ghost, PLAYER_X + 30, PLAYER_Y, WIDTH, 0, PINKY)
 
 screen.fill((0, 0, 0))
 is_game_running = False
