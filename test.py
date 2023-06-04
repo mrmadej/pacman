@@ -10,8 +10,14 @@ pygame.init()
 
 window_open = True
 # wymiary okna
+NUM_ROWS = 33
+NUM_COLS = 30
+STEP = 2
+MARGIN = 50
 WIDTH = 900
-HEIGHT = 974  # 950 + 24
+HEIGHT = 924 + MARGIN  # 900 + 50 + 24
+
+
 PI = math.pi
 CENTER_X_PLAYER = 23
 CENTER_Y_PLAYER = 24
@@ -68,7 +74,7 @@ for i in range(1, 5):
     pacman_images.append(
         pygame.transform.scale(pygame.image.load(os.path.join(current_dir, f'{i}.png')).convert_alpha(), (45, 45)))
 
-level = boards
+
 
 color = 'blue'
 
@@ -100,16 +106,18 @@ class Collision:
         x_offset = center_x % TILE_X_LEN
         y_offset = center_y % TILE_Y_LEN
 
-        if level[square_y][square_x + 1] < 3 or x_offset < (TILE_X_LEN // 2):
+        print("Square: " + str(square_x) + " " + str(square_y))
+
+        if level.board[square_y][(square_x + 1) % NUM_COLS] < 3 or x_offset < (TILE_X_LEN // 2):
             self.possible_turns[PRAWO] = True
 
-        if level[square_y][square_x - 1] < 3 or x_offset > (TILE_X_LEN // 2):
+        if level.board[square_y][(square_x - 1)% NUM_COLS] < 3 or x_offset > (TILE_X_LEN // 2):
             self.possible_turns[LEWO] = True
 
-        if level[square_y - 1][square_x] < 3 or y_offset > (TILE_Y_LEN // 2):
+        if level.board[square_y - 1][square_x % NUM_COLS] < 3 or y_offset > (TILE_Y_LEN // 2):
             self.possible_turns[GORA] = True
 
-        if level[square_y + 1][square_x] < 3 or y_offset < (TILE_Y_LEN // 2):
+        if level.board[(square_y + 1) % NUM_ROWS][square_x % NUM_COLS] < 3 or y_offset < (TILE_Y_LEN // 2):
             self.possible_turns[DOL] = True
 
 
@@ -124,13 +132,17 @@ class Player(Collision):
         self.powerup = False
         self.lifes = 3
         self.current_rotation = PRAWO
+        self.start_x = player_x
+        self.start_y = player_y
 
     def time(self):
         timer = threading.Timer(POWERUP_TIME, self.powerUp)
         timer.start()
+        print ("Timer started player")
 
     def powerUp(self):
         self.powerup = False
+        print ("Timer expired player")
 
     def _get_event(self, key_pressed):
 
@@ -146,26 +158,38 @@ class Player(Collision):
         if key_pressed[pygame.K_LEFT]:
             if self.possible_turns[LEWO]:
                 self.current_rotation = LEWO
-                self.rect.move_ip([-2, move_y])
+                if center_x > STEP:
+                    self.rect.move_ip([-STEP, move_y])
+                else:
+                    self.rect.move_ip([WIDTH - STEP, move_y])
         if key_pressed[pygame.K_RIGHT]:
             if self.possible_turns[PRAWO]:
                 self.current_rotation = PRAWO
-                self.rect.move_ip([2, move_y])
+                if center_x < WIDTH - STEP:
+                    self.rect.move_ip([STEP, move_y])
+                else:
+                    self.rect.move_ip([-WIDTH, move_y])
         if key_pressed[pygame.K_UP]:
             if self.possible_turns[GORA]:
                 self.current_rotation = GORA
-                self.rect.move_ip([move_x, -2])
+                if center_y > STEP:
+                    self.rect.move_ip([move_x, -STEP])
+                else:
+                    self.rect.move_ip([move_x, HEIGHT - MARGIN - STEP - 1])
         if key_pressed[pygame.K_DOWN]:
             if self.possible_turns[DOL]:
                 self.current_rotation = DOL
-                self.rect.move_ip([move_x, 2])
+                if center_y < HEIGHT - MARGIN - STEP:
+                    self.rect.move_ip([move_x, STEP])
+                else:
+                    self.rect.move_ip([move_x, -HEIGHT + MARGIN])
 
     def eating(self):
         CENTER_X = self.rect.x + CENTER_X_PLAYER
         CENTER_Y = self.rect.y + CENTER_Y_PLAYER
-        position = level[CENTER_Y // TILE_Y_LEN][CENTER_X // TILE_X_LEN]
+        position = level.board[CENTER_Y // TILE_Y_LEN][CENTER_X // TILE_X_LEN]
         if position == 1 or position == 2:
-            level[CENTER_Y // TILE_Y_LEN][CENTER_X // TILE_X_LEN] = 0
+            level.board[CENTER_Y // TILE_Y_LEN][CENTER_X // TILE_X_LEN] = 0
             if position == 1:
                 self.score += 10
             elif position == 2:
@@ -189,12 +213,12 @@ class Player(Collision):
             self.rect.y + CENTER_Y_PLAYER) + "; Level_x: " + str(
             (self.rect.y + CENTER_Y_PLAYER) // ((HEIGHT - 50) // 33)) + "; Level_y: " + str(
             (self.rect.x + CENTER_X_PLAYER) // (WIDTH // 30)) + "; Level[x][y]: " + str(
-            level[((self.rect.y + CENTER_Y_PLAYER) // ((HEIGHT - 50) // 33))][
+            level.board[((self.rect.y + CENTER_Y_PLAYER) // ((HEIGHT - 50) // 33))][
                 ((self.rect.x + CENTER_X_PLAYER) // (WIDTH // 30))]) + "\n")
         # print("Powerup: " + str(self.powerup))
 
     def update(self, key_pressed):
-        self.testing_position()
+        # self.testing_position()
         self.eating()
         self._get_event(key_pressed)
         self.animation()
@@ -234,7 +258,7 @@ class HUD:
 
 
 class Ghost(Collision):
-    def __init__(self, image: pygame.Surface, x: int, y: int, scatter_target_x: int, scatter_target_y: int, name: int) -> None:
+    def __init__(self, image: pygame.Surface, x: int, y: int, scatter_target_x: int, scatter_target_y: int, name: int, points: int) -> None:
         super().__init__()
         self.image = image
         self.ghost_name = name
@@ -251,43 +275,91 @@ class Ghost(Collision):
         self.directionImportance = [0, 1, 2, 3]
         self.frighten_mode_first = True
         self.eaten = True
-        self.current_mode = EXIT_CAGE
+        self.current_mode = -1
         self.timer = None
         self.entered_scatter_mode = False
-        self.current_callback = -1
+        self.points = points
+    
+    def killing_pacman(self):
+        ghost_center_x = (self.rect.x + CENTER_X_PLAYER) // TILE_X_LEN
+        ghost_center_y = (self.rect.y + CENTER_Y_PLAYER) // TILE_Y_LEN
+        pacman_center_x = (player.rect.x + CENTER_X_PLAYER) // TILE_X_LEN
+        pacman_center_y = (player.rect.y + CENTER_Y_PLAYER) // TILE_Y_LEN
+        if ghost_center_x == pacman_center_x and ghost_center_y == pacman_center_y and self.current_mode != FRIGHTEN_MODE:
+            player.lifes -= 1
+            level.start()
+
+    def is_in_cage(self) -> bool:
+        x = (self.rect.x + CENTER_X_PLAYER) // TILE_X_LEN >= 12 and (self.rect.x + CENTER_X_PLAYER) // TILE_X_LEN <= 17
+        y = (self.rect.y + CENTER_Y_PLAYER) // TILE_Y_LEN >= 13 and (self.rect.y + CENTER_Y_PLAYER) // TILE_Y_LEN <= 16
+        cage = x and y
+        front_cage_x = (self.rect.x + CENTER_X_PLAYER) // TILE_X_LEN >= 14 and (self.rect.x + CENTER_X_PLAYER) // TILE_X_LEN <= 15
+        front_cage_y = (self.rect.y + CENTER_Y_PLAYER) // TILE_Y_LEN == 12
+        front_cage = front_cage_x and front_cage_y
+        return cage or front_cage
 
     def start_timer(self, duration, callback):
+        print ("Timer start ghost")
         self.stop_timer()  # Zatrzymujemy poprzedni timer, jeśli istnieje
-        self.current_callback = callback
-        self.timer = threading.Timer(duration, lambda: self.change_mode(mode = callback))
+        self.timer = threading.Timer(duration, lambda: self.timer_callback(mode = callback))
         #self.timer = threading.Timer(duration, self.change_mode(callback))
         self.timer.start()
     
-    def stop_timer(self):
+    def stop_timer(self):        
         if self.timer and self.timer.is_alive():
+            print ("Timer stop ghost")
             self.timer.cancel()
+
+    def timer_callback(self,mode):
+        print("Timer ghost expired"+str(mode)+"\n")
+        self.current_mode=mode
 
     def draw(self, screen: pygame.Surface):
         screen.blit(self.image, self.rect)
 
     def move(self, direction: int):
         self.last_move = direction
+
+        # need fit to grid horizontal if running up or down or vertical if running left or right
+        center_x = self.rect.x + CENTER_X_PLAYER
+        center_y = self.rect.y + CENTER_Y_PLAYER
+        x_offset = center_x % TILE_X_LEN
+        y_offset = center_y % TILE_Y_LEN
+        move_x = - (x_offset - TILE_X_LEN // 2)
+        move_y = - (y_offset - TILE_Y_LEN // 2)
+
         if direction == PRAWO:
-            self.rect.move_ip([2, 0])
+            if center_x < WIDTH - STEP:
+                self.rect.move_ip([STEP, move_y])
+            else:
+                self.rect.move_ip([-WIDTH, move_y])            
         if direction == LEWO:
-            self.rect.move_ip([-2, 0])
+            if center_x > STEP:
+                self.rect.move_ip([-STEP, move_y])
+            else:
+                self.rect.move_ip([WIDTH - STEP, move_y])            
         if direction == GORA:
-            self.rect.move_ip([0, -2])
+            if center_y > STEP:
+                self.rect.move_ip([move_x, -STEP])
+            else:
+                self.rect.move_ip([move_x, HEIGHT - MARGIN - STEP - 1])            
         if direction == DOL:
-            self.rect.move_ip([0, 2])
-    def change_mode(self, mode = None):
+            if center_y < HEIGHT - MARGIN - STEP:
+                self.rect.move_ip([move_x, STEP])
+            else:
+                self.rect.move_ip([move_x, -HEIGHT + MARGIN])
+
+
+    def change_mode(self, mode = None):        
         if mode is not None:
             self.current_mode = mode
-        if self.current_mode != FRIGHTEN_MODE and player.powerup == True:
+
+        if self.current_mode != FRIGHTEN_MODE and self.current_mode != EATEN_MODE and player.powerup == True and not self.is_in_cage():
             self.image = IMAGE_GHOST_POWERUP
             self.frighten_mode_first = True
             self.current_mode = FRIGHTEN_MODE
             self.start_timer(POWERUP_TIME, SCATTER_MODE)
+
         if self.current_mode == CHASE_MODE:
             self.chase_mode()
         elif self.current_mode == SCATTER_MODE:
@@ -296,8 +368,9 @@ class Ghost(Collision):
             self.frighten_mode()
         elif self.current_mode == EATEN_MODE:
             self.eaten_mode()
-        elif self.current_mode == EXIT_CAGE:
+        elif self.current_mode == EXIT_CAGE:        
             self.exit_cage()
+
     def chase_mode(self):
         self.image = self.image_storage
         if self.timer and not self.timer.is_alive():
@@ -332,7 +405,7 @@ class Ghost(Collision):
             self.start_timer(duration, CHASE_MODE)
         self.move(self.calculate_distance(self.scatter_target_x, self.scatter_target_y))
     def exit_cage(self):
-        if self.rect.x + CENTER_X_PLAYER == EATEN_MODE_TARGET_X and self.rect.y == EATEN_MODE_TARGET_Y:
+        if self.rect.x + CENTER_X_PLAYER == EATEN_MODE_TARGET_X and self.rect.y + CENTER_Y_PLAYER == EATEN_MODE_TARGET_Y:
             self.eaten = False
             self.current_mode = CHASE_MODE
             duration = random.randint(5, 15)
@@ -346,13 +419,14 @@ class Ghost(Collision):
             self.image = IMAGE_GHOST_DEAD
             self.frighten_mode_first = False
             #testing
-        if self.rect.x + CENTER_X_PLAYER == 375 and self.rect.y + CENTER_Y_PLAYER == 434:
+        if self.rect.x + CENTER_X_PLAYER == self.start_x + CENTER_X_PLAYER and self.rect.y + CENTER_Y_PLAYER == self.start_y + CENTER_Y_PLAYER:
             self.last_move = -1
             self.image = self.image_storage
             self.current_mode = EXIT_CAGE
             #self.change_mode()
         else:
-            self.move(self.calculate_distance(375, 434))
+            # 375, 434
+            self.move(self.calculate_distance(self.start_x + CENTER_X_PLAYER, self.start_y + CENTER_Y_PLAYER))
         
 
     def frighten_mode(self):
@@ -366,9 +440,11 @@ class Ghost(Collision):
 
 
         if (ghost_center_x // TILE_X_LEN == pacman_center_x // TILE_X_LEN) and (ghost_center_y // TILE_Y_LEN == pacman_center_y // TILE_Y_LEN):
+            print("Kolizja z duchem")
             self.stop_timer()
             self.current_mode = EATEN_MODE
-            self.eaten = True
+            player.score += self.points
+            # self.eaten = True
         if self.frighten_mode_first:
             self.frighten_mode_first = False
             if self.last_move == 1:
@@ -386,11 +462,18 @@ class Ghost(Collision):
             while self.possible_turns[next_direction] == False:
                 next_direction = random.randint(0, 3)
         self.move(next_direction)
+
+
     def calculate_distance(self, target_x, target_y):
+
+        ghost_center_x = self.rect.x + CENTER_X_PLAYER
+        ghost_center_y = self.rect.y + CENTER_Y_PLAYER
+                
+
         if self.eaten == True:
-            if level[((self.rect.y + CENTER_Y_PLAYER) // TILE_Y_LEN) + 1][((self.rect.x + CENTER_X_PLAYER) // TILE_X_LEN)] == 9:
+            if level.board[(ghost_center_y // TILE_Y_LEN) + 1][(ghost_center_x // TILE_X_LEN)] == 9:
                 self.possible_turns[DOL] = True
-            if level[((self.rect.y + CENTER_Y_PLAYER) // TILE_Y_LEN) - 1][((self.rect.x + CENTER_X_PLAYER) // TILE_X_LEN)] == 9:
+            if level.board[(ghost_center_y // TILE_Y_LEN) - 1][(ghost_center_x // TILE_X_LEN)] == 9:
                 self.possible_turns[GORA] = True
         next_direction = self.last_move
         distance = dict()
@@ -432,50 +515,80 @@ class Ghost(Collision):
                             last_distance = dist
                             next_direction = direction
         return next_direction
+    
+
+
     def update(self):
         self.position()
         #self.scatter_mode()
         #self.frighten_mode()
         #self.eaten_mode()
         #self.chase_mode()
+        self.killing_pacman()
         self.change_mode()
+
     def center_check(self) -> bool:
+
         return (self.rect.x + CENTER_X_PLAYER) % TILE_X_LEN == TILE_X_LEN // 2  and (self.rect.y + CENTER_Y_PLAYER) % TILE_Y_LEN == TILE_Y_LEN // 2
 
-def draw_board():
-    num1 = ((HEIGHT - 50) // 33)
-    num2 = (WIDTH // 30)
-    for i in range(len(level)):
-        for j in range(len(level[i])):
-            pygame.draw.polygon(screen, 'red', (
-                (j * num2, i * num1), (j * num2, (i + 1) * num1), ((j - 1) * num2, (i + 1) * num1),
-                ((j - 1) * num2, i * num1)), 2)
-            if level[i][j] == 1:
-                pygame.draw.circle(screen, 'white', (j * num2 + (0.5 * num2), i * num1 + (0.5 * num1)), 4)
-            if level[i][j] == 2:
-                pygame.draw.circle(screen, 'white', (j * num2 + (0.5 * num2), i * num1 + (0.5 * num1)), 10)
-            if level[i][j] == 3:
-                pygame.draw.line(screen, color, (j * num2 + (0.5 * num2), i * num1),
-                                 (j * num2 + (0.5 * num2), i * num1 + num1), 3)
-            if level[i][j] == 4:
-                pygame.draw.line(screen, color, (j * num2, i * num1 + (0.5 * num1)),
-                                 (j * num2 + num2, i * num1 + (0.5 * num1)), 3)
-            if level[i][j] == 5:
-                pygame.draw.arc(screen, color, [(j * num2 - (num2 * 0.4)) - 2, (i * num1 + (0.5 * num1)), num2, num1],
-                                0, PI / 2, 3)
-            if level[i][j] == 6:
-                pygame.draw.arc(screen, color,
-                                [(j * num2 + (num2 * 0.5)), (i * num1 + (0.5 * num1)), num2, num1], PI / 2, PI, 3)
-            if level[i][j] == 7:
-                pygame.draw.arc(screen, color, [(j * num2 + (num2 * 0.5)), (i * num1 - (0.4 * num1)), num2, num1], PI,
-                                3 * PI / 2, 3)
-            if level[i][j] == 8:
-                pygame.draw.arc(screen, color,
-                                [(j * num2 - (num2 * 0.4)) - 2, (i * num1 - (0.4 * num1)), num2, num1], 3 * PI / 2,
-                                2 * PI, 3)
-            if level[i][j] == 9:
-                pygame.draw.line(screen, 'white', (j * num2, i * num1 + (0.5 * num1)),
-                                 (j * num2 + num2, i * num1 + (0.5 * num1)), 3)
+
+class Level:
+    def __init__(self, board, characters) -> None:
+        self.board = board
+        # [player, clyde, blinky, inky, pinky]
+        self.characters = characters
+        self.is_game_running = False
+    def draw_board(self):
+        num1 = ((HEIGHT - 50) // 33)
+        num2 = (WIDTH // 30)
+        for i in range(len(self.board)):
+            for j in range(len(self.board[i])):
+                pygame.draw.polygon(screen, 'red', (
+                    (j * num2, i * num1), (j * num2, (i + 1) * num1), ((j - 1) * num2, (i + 1) * num1),
+                    ((j - 1) * num2, i * num1)), 2)
+                if self.board[i][j] == 1:
+                    pygame.draw.circle(screen, 'white', (j * num2 + (0.5 * num2), i * num1 + (0.5 * num1)), 4)
+                if self.board[i][j] == 2:
+                    pygame.draw.circle(screen, 'white', (j * num2 + (0.5 * num2), i * num1 + (0.5 * num1)), 10)
+                if self.board[i][j] == 3:
+                    pygame.draw.line(screen, color, (j * num2 + (0.5 * num2), i * num1),
+                                    (j * num2 + (0.5 * num2), i * num1 + num1), 3)
+                if self.board[i][j] == 4:
+                    pygame.draw.line(screen, color, (j * num2, i * num1 + (0.5 * num1)),
+                                    (j * num2 + num2, i * num1 + (0.5 * num1)), 3)
+                if self.board[i][j] == 5:
+                    pygame.draw.arc(screen, color, [(j * num2 - (num2 * 0.4)) - 2, (i * num1 + (0.5 * num1)), num2, num1],
+                                    0, PI / 2, 3)
+                if self.board[i][j] == 6:
+                    pygame.draw.arc(screen, color,
+                                    [(j * num2 + (num2 * 0.5)), (i * num1 + (0.5 * num1)), num2, num1], PI / 2, PI, 3)
+                if self.board[i][j] == 7:
+                    pygame.draw.arc(screen, color, [(j * num2 + (num2 * 0.5)), (i * num1 - (0.4 * num1)), num2, num1], PI,
+                                    3 * PI / 2, 3)
+                if self.board[i][j] == 8:
+                    pygame.draw.arc(screen, color,
+                                    [(j * num2 - (num2 * 0.4)) - 2, (i * num1 - (0.4 * num1)), num2, num1], 3 * PI / 2,
+                                    2 * PI, 3)
+                if self.board[i][j] == 9:
+                    pygame.draw.line(screen, 'white', (j * num2, i * num1 + (0.5 * num1)),
+                                    (j * num2 + num2, i * num1 + (0.5 * num1)), 3)
+    def start(self):
+        i = 0
+        for character in self.characters:
+            character.rect.x = character.start_x
+            character.rect.y = character.start_y
+            if i == 0:
+                pass
+            else:
+                character.current_mode = -1
+                character.start_timer(5 * i, EXIT_CAGE)
+            i += 1
+    
+    def win(self):
+        warunek1 = not any(1 in row for row in self.board)
+        warunek2 = not any(2 in row for row in self.board)
+        if warunek1 and warunek2:
+            self.is_game_running = False
 
 
 image_ghost_blue = pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'blue.png')).convert_alpha(), (45, 45))
@@ -488,17 +601,19 @@ IMAGE_GHOST_POWERUP = pygame.transform.scale(pygame.image.load(os.path.join(curr
 # konkretyzacja obiektów
 player = Player(PLAYER_X, PLAYER_Y, pacman_images[0])
 hud = HUD(0, 3)
-#blinky = Ghost(image_ghost_blue)
-inky = Ghost(image_ghost_orange,  PLAYER_X + 30, PLAYER_Y - 28 * 3, WIDTH, 0, INKY)
-pinky = Ghost(image_ghost_pink, 352, 410, WIDTH, 0, PINKY)
-clyde = Ghost(image_ghost_red, 75 - CENTER_X_PLAYER, 70 - CENTER_Y_PLAYER, 0, 0, CLYDE)
+blinky = Ghost(image_ghost_blue, 472, 410, 0, 0, BLINKY, 100)
+inky = Ghost(image_ghost_orange,  412, 410, WIDTH, 0, INKY, 200)
+pinky = Ghost(image_ghost_pink, 352, 410, WIDTH, HEIGHT, PINKY, 300)
+clyde = Ghost(image_ghost_red, 412, 326, 0, HEIGHT, CLYDE, 400)
+level = Level(boards, [player, clyde, blinky, inky, pinky])
 
 
 screen.fill((0, 0, 0))
-is_game_running = False
+
 
 clock = pygame.time.Clock()
 
+level.start()
 while window_open:
     # wyłączanie gry
     for event in pygame.event.get():
@@ -511,7 +626,7 @@ while window_open:
         if event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = pygame.mouse.get_pos()
             if button_rect.collidepoint(mouse_pos):
-                is_game_running = True
+                level.is_game_running = True
 
     if counter < 19:
         counter += 1
@@ -524,23 +639,25 @@ while window_open:
     screen.blit(background_image, (90.5, 0))  # Wyświetlanie obrazka tła
     screen.blit(button_image, button_rect)  # Wyświetlanie obrazka na przycisku
 
-    if is_game_running:
+    if level.is_game_running:
         # Renderowanie planszy gry
-
+        level.win()
         # Ustawienie koloru tła na czarny
         screen.fill((0, 0, 0))
         # Rysowanie planszy
-        draw_board()
+        level.draw_board()
         hud.draw(screen)
         player.draw(screen)
+        blinky.draw(screen)
         pinky.draw(screen)
-        #inky.draw(screen)
-        #clyde.draw(screen)
+        inky.draw(screen)
+        clyde.draw(screen)
         key_pressed = pygame.key.get_pressed()
         player.update(key_pressed)
+        blinky.update()
         pinky.update()
-        #inky.update()
-        #clyde.update()
+        inky.update()
+        clyde.update()
 
     # Aktualizacja ekranu
     pygame.display.flip()
