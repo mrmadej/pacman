@@ -250,8 +250,22 @@ class Ghost(Collision):
         # prawo, dół, lewo, góra
         self.directionImportance = [0, 1, 2, 3]
         self.frighten_mode_first = True
-        self.eaten = False
-        self.current_mode = EATEN_MODE
+        self.eaten = True
+        self.current_mode = EXIT_CAGE
+        self.timer = None
+        self.entered_scatter_mode = False
+        self.current_callback = -1
+
+    def start_timer(self, duration, callback):
+        self.stop_timer()  # Zatrzymujemy poprzedni timer, jeśli istnieje
+        self.current_callback = callback
+        self.timer = threading.Timer(duration, lambda: self.change_mode(mode = callback))
+        #self.timer = threading.Timer(duration, self.change_mode(callback))
+        self.timer.start()
+    
+    def stop_timer(self):
+        if self.timer and self.timer.is_alive():
+            self.timer.cancel()
 
     def draw(self, screen: pygame.Surface):
         screen.blit(self.image, self.rect)
@@ -266,7 +280,14 @@ class Ghost(Collision):
             self.rect.move_ip([0, -2])
         if direction == DOL:
             self.rect.move_ip([0, 2])
-    def change_mode(self):
+    def change_mode(self, mode = None):
+        if mode is not None:
+            self.current_mode = mode
+        if self.current_mode != FRIGHTEN_MODE and player.powerup == True:
+            self.image = IMAGE_GHOST_POWERUP
+            self.frighten_mode_first = True
+            self.current_mode = FRIGHTEN_MODE
+            self.start_timer(POWERUP_TIME, SCATTER_MODE)
         if self.current_mode == CHASE_MODE:
             self.chase_mode()
         elif self.current_mode == SCATTER_MODE:
@@ -278,6 +299,10 @@ class Ghost(Collision):
         elif self.current_mode == EXIT_CAGE:
             self.exit_cage()
     def chase_mode(self):
+        self.image = self.image_storage
+        if self.timer and not self.timer.is_alive():
+            duration = random.randint(5, 15)
+            self.start_timer(duration, SCATTER_MODE)
         palyer_center_x = player.rect.x + CENTER_X_PLAYER
         palyer_center_y = player.rect.y + CENTER_Y_PLAYER
         if self.ghost_name == BLINKY:
@@ -301,18 +326,25 @@ class Ghost(Collision):
             else:
                 self.move(self.calculate_distance(self.scatter_target_x, self.scatter_target_y))
     def scatter_mode(self):
+        self.image = self.image_storage
+        if self.timer and not self.timer.is_alive():
+            duration = random.randint(5, 15)
+            self.start_timer(duration, CHASE_MODE)
         self.move(self.calculate_distance(self.scatter_target_x, self.scatter_target_y))
     def exit_cage(self):
         if self.rect.x + CENTER_X_PLAYER == EATEN_MODE_TARGET_X and self.rect.y == EATEN_MODE_TARGET_Y:
             self.eaten = False
             self.current_mode = CHASE_MODE
-            #self.change_mode()
+            duration = random.randint(5, 15)
+            self.start_timer(duration, SCATTER_MODE)
         else:
             self.move(self.calculate_distance(EATEN_MODE_TARGET_X, EATEN_MODE_TARGET_Y))
-    def eaten_mode(self):
+    def eaten_mode(self): # POPRAWIC
+        self.stop_timer()
         if self.eaten == False:
             self.eaten = True
             self.image = IMAGE_GHOST_DEAD
+            self.frighten_mode_first = False
             #testing
         if self.rect.x + CENTER_X_PLAYER == 375 and self.rect.y + CENTER_Y_PLAYER == 434:
             self.last_move = -1
@@ -324,6 +356,19 @@ class Ghost(Collision):
         
 
     def frighten_mode(self):
+        # self.rect.x + CENTER_X_PLAYER == player.rect.x + CENTER_X_PLAYER and self.rect.y + CENTER_Y_PLAYER == player.rect.y + CENTER_Y_PLAYER
+
+        ghost_center_x = self.rect.x + CENTER_X_PLAYER
+        ghost_center_y = self.rect.y + CENTER_Y_PLAYER
+        
+        pacman_center_x = player.rect.x + CENTER_X_PLAYER
+        pacman_center_y = player.rect.y + CENTER_Y_PLAYER
+
+
+        if (ghost_center_x // TILE_X_LEN == pacman_center_x // TILE_X_LEN) and (ghost_center_y // TILE_Y_LEN == pacman_center_y // TILE_Y_LEN):
+            self.stop_timer()
+            self.current_mode = EATEN_MODE
+            self.eaten = True
         if self.frighten_mode_first:
             self.frighten_mode_first = False
             if self.last_move == 1:
@@ -387,7 +432,6 @@ class Ghost(Collision):
                             last_distance = dist
                             next_direction = direction
         return next_direction
-    
     def update(self):
         self.position()
         #self.scatter_mode()
@@ -439,13 +483,14 @@ image_ghost_red = pygame.transform.scale(pygame.image.load(os.path.join(current_
 image_ghost_pink = pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'pink.png')).convert_alpha(), (45, 45))
 image_ghost_orange = pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'orange.png')).convert_alpha(), (45, 45))
 IMAGE_GHOST_DEAD = pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'dead.png')).convert_alpha(), (45, 45))
+IMAGE_GHOST_POWERUP = pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'powerup.png')).convert_alpha(), (45, 45))
 
 # konkretyzacja obiektów
 player = Player(PLAYER_X, PLAYER_Y, pacman_images[0])
 hud = HUD(0, 3)
 #blinky = Ghost(image_ghost_blue)
 inky = Ghost(image_ghost_orange,  PLAYER_X + 30, PLAYER_Y - 28 * 3, WIDTH, 0, INKY)
-pinky = Ghost(image_ghost_pink, PLAYER_X + 30, PLAYER_Y, WIDTH, 0, PINKY)
+pinky = Ghost(image_ghost_pink, 352, 410, WIDTH, 0, PINKY)
 clyde = Ghost(image_ghost_red, 75 - CENTER_X_PLAYER, 70 - CENTER_Y_PLAYER, 0, 0, CLYDE)
 
 
