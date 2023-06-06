@@ -184,7 +184,7 @@ class Player(Collision):
         y_offset = center_y % TILE_Y_LEN
         move_x = - (x_offset - TILE_X_LEN // 2)
         move_y = - (y_offset - TILE_Y_LEN // 2)
-
+        
         if key_pressed[pygame.K_LEFT]:
             if self.possible_turns[LEWO]:
                 self.current_rotation = LEWO

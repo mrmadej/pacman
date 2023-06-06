@@ -5,8 +5,10 @@ import logging
 import sys
 import threading
 import random
+import copy
 
 pygame.init()
+pygame.mixer.init()
 
 window_open = True
 # wymiary okna
@@ -41,7 +43,11 @@ BLINKY = 0
 INKY = 1
 PINKY = 2
 CLYDE = 3
-
+STARTING_PANEL = 0
+RUNNING_GAME = 1
+ENDING_PANEL = 2
+FONT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'font\OptimusPrinceps.ttf')
+FONT_COLOR = (79, 0, 1)
 
 # Ustalenie ścieżki do obrazka
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -80,6 +86,11 @@ color = 'blue'
 
 counter = 0
 
+START_SOUND = pygame.mixer.Sound(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sound\start.wav'))
+EATING_SOUND = pygame.mixer.Sound(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sound\eating.wav'))
+PACMAN_DEATH_SOUND = pygame.mixer.Sound(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sound\pacman_death.wav'))
+PACMAN_EATGHOST_SOUND = pygame.mixer.Sound(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sound\pacman_eatghost.wav'))
+PACMAN_WIN_SOUND = pygame.mixer.Sound(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sound\pacman_win.wav'))
 
 class Collision:
     def __init__(self) -> None:
@@ -106,7 +117,7 @@ class Collision:
         x_offset = center_x % TILE_X_LEN
         y_offset = center_y % TILE_Y_LEN
 
-        print("Square: " + str(square_x) + " " + str(square_y))
+        # print("Square: " + str(square_x) + " " + str(square_y))
 
         if level.board[square_y][(square_x + 1) % NUM_COLS] < 3 or x_offset < (TILE_X_LEN // 2):
             self.possible_turns[PRAWO] = True
@@ -134,15 +145,34 @@ class Player(Collision):
         self.current_rotation = PRAWO
         self.start_x = player_x
         self.start_y = player_y
+        self.timer = None
+        self.started = False
 
-    def time(self):
-        timer = threading.Timer(POWERUP_TIME, self.powerUp)
-        timer.start()
-        print ("Timer started player")
+    def start_timer(self, duration, callback):
+        self.stop_timer()
+        self.timer = threading.Timer(duration, callback)
+        print("Timer start packman " + str(duration))    
+        self.timer.start()
+
+    def stop_timer(self):        
+        
+        if  not self.timer:
+            print("Timer niezainicjowany packman") 
+        else:     
+            if not self.timer.is_alive():
+                print("Timer niezywy packman")      
+        
+        if self.timer and self.timer.is_alive():
+            print("Timer stop packman")    
+            self.timer.cancel()
+
+    def start_delay(self):
+        print("Timer expired packman - delay")
+        self.started = True
 
     def powerUp(self):
         self.powerup = False
-        print ("Timer expired player")
+        print ("Timer expired packman - powerup")
 
     def _get_event(self, key_pressed):
 
@@ -154,7 +184,7 @@ class Player(Collision):
         y_offset = center_y % TILE_Y_LEN
         move_x = - (x_offset - TILE_X_LEN // 2)
         move_y = - (y_offset - TILE_Y_LEN // 2)
-
+        
         if key_pressed[pygame.K_LEFT]:
             if self.possible_turns[LEWO]:
                 self.current_rotation = LEWO
@@ -192,10 +222,15 @@ class Player(Collision):
             level.board[CENTER_Y // TILE_Y_LEN][CENTER_X // TILE_X_LEN] = 0
             if position == 1:
                 self.score += 10
+                if not pygame.mixer.get_busy():
+                    EATING_SOUND.play()
             elif position == 2:
                 self.score += 50
                 self.powerup = True
-                self.time()
+                self.start_timer(POWERUP_TIME, self.powerUp)
+                if not pygame.mixer.get_busy():
+                    EATING_SOUND.play()
+        
         hud.update(self.score, self.lifes)
 
     def animation(self):
@@ -218,11 +253,12 @@ class Player(Collision):
         # print("Powerup: " + str(self.powerup))
 
     def update(self, key_pressed):
-        # self.testing_position()
-        self.eating()
-        self._get_event(key_pressed)
-        self.animation()
-        pygame.draw.circle(screen, 'white', (self.rect.x + CENTER_X_PLAYER, self.rect.y + CENTER_Y_PLAYER), 2)
+        if self.started:
+            # self.testing_position()
+            self.eating()
+            self._get_event(key_pressed)
+            self.animation()
+            # pygame.draw.circle(screen, 'white', (self.rect.x + CENTER_X_PLAYER, self.rect.y + CENTER_Y_PLAYER), 2)
 
     def draw(self, screen: pygame.Surface):
         screen.blit(self.image, self.rect)
@@ -235,7 +271,7 @@ class HUD:
         # Ustawienia tekstu
         self.font_size = 32
         self.font_color = (255, 255, 255)  # Biały kolor tekstu
-        self.font = pygame.font.Font(None, self.font_size)
+        self.font = pygame.font.Font(FONT, self.font_size)
         self.text_render = self.font.render(("Score: " + str(score)), True, self.font_color, None)
         self.text_rect = self.text_render.get_rect()
         self.text_rect.x = 30
@@ -244,7 +280,7 @@ class HUD:
         self.image = pacman_images[0]
         self.lifes_rect = self.image.get_rect()
         self.lifes_rect.x = WIDTH - 30 - CENTER_X_PLAYER
-        self.lifes_rect.y = self.text_rect.y - CENTER_Y_PLAYER
+        self.lifes_rect.y = self.text_rect.y - 10
 
     def draw(self, screen: pygame.Surface):
         screen.blit(self.text_render, self.text_rect)
@@ -285,8 +321,11 @@ class Ghost(Collision):
         ghost_center_y = (self.rect.y + CENTER_Y_PLAYER) // TILE_Y_LEN
         pacman_center_x = (player.rect.x + CENTER_X_PLAYER) // TILE_X_LEN
         pacman_center_y = (player.rect.y + CENTER_Y_PLAYER) // TILE_Y_LEN
-        if ghost_center_x == pacman_center_x and ghost_center_y == pacman_center_y and self.current_mode != FRIGHTEN_MODE:
+        if ghost_center_x == pacman_center_x and ghost_center_y == pacman_center_y and self.current_mode != EATEN_MODE and self.current_mode != FRIGHTEN_MODE:
+            PACMAN_DEATH_SOUND.play()
             player.lifes -= 1
+            print("pacman zżarty")
+            hud.update(player.score, player.lifes)
             level.start()
 
     def is_in_cage(self) -> bool:
@@ -299,19 +338,29 @@ class Ghost(Collision):
         return cage or front_cage
 
     def start_timer(self, duration, callback):
-        print ("Timer start ghost")
+        
+
         self.stop_timer()  # Zatrzymujemy poprzedni timer, jeśli istnieje
+        print("GHOST "+str(self.ghost_name)+"Timer start " + str(duration) +"\n")
+
         self.timer = threading.Timer(duration, lambda: self.timer_callback(mode = callback))
         #self.timer = threading.Timer(duration, self.change_mode(callback))
         self.timer.start()
     
-    def stop_timer(self):        
+    def stop_timer(self):
+        
+        if  not self.timer:
+            print("GHOST "+str(self.ghost_name)+" Timer niezainicjowany"+"\n") 
+        else:     
+            if not self.timer.is_alive():
+                print("GHOST "+str(self.ghost_name)+"Timer niezywy"+"\n")      
+
         if self.timer and self.timer.is_alive():
-            print ("Timer stop ghost")
+            print ("GHOST "+str(self.ghost_name)+"Timer stop ghost"+"\n")
             self.timer.cancel()
 
     def timer_callback(self,mode):
-        print("Timer ghost expired"+str(mode)+"\n")
+        print("GHOST "+str(self.ghost_name)+"Timer expired"+str(mode)+"\n")
         self.current_mode=mode
 
     def draw(self, screen: pygame.Surface):
@@ -415,6 +464,7 @@ class Ghost(Collision):
     def eaten_mode(self): # POPRAWIC
         self.stop_timer()
         if self.eaten == False:
+            PACMAN_EATGHOST_SOUND.play()
             self.eaten = True
             self.image = IMAGE_GHOST_DEAD
             self.frighten_mode_first = False
@@ -440,7 +490,7 @@ class Ghost(Collision):
 
 
         if (ghost_center_x // TILE_X_LEN == pacman_center_x // TILE_X_LEN) and (ghost_center_y // TILE_Y_LEN == pacman_center_y // TILE_Y_LEN):
-            print("Kolizja z duchem")
+            # print("Kolizja z duchem")
             self.stop_timer()
             self.current_mode = EATEN_MODE
             player.score += self.points
@@ -532,12 +582,72 @@ class Ghost(Collision):
         return (self.rect.x + CENTER_X_PLAYER) % TILE_X_LEN == TILE_X_LEN // 2  and (self.rect.y + CENTER_Y_PLAYER) % TILE_Y_LEN == TILE_Y_LEN // 2
 
 
+class Button:
+    def __init__(self, x, y, text, function):
+        self.rect = pygame.Rect(x - 150, y, 300, 75)
+        self.text = text
+        self.function = function
+        self.button_color = (117, 117, 117)
+
+        self.font_size = 50
+        self.font_color = (79, 0, 1)  # Biały kolor tekstu
+        self.font = pygame.font.Font(FONT, self.font_size)
+        self.text_render = self.font.render(self.text, True, self.font_color, None)
+        self.text_rect = self.text_render.get_rect(center = self.rect.center)
+
+    def rysuj(self):
+        pygame.draw.rect(screen, self.button_color, self.rect)
+        screen.blit(self.text_render, self.text_rect)
+
+    def sprawdz_klikniecie(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.rect.collidepoint(event.pos):
+                START_SOUND.play()
+                self.function()
+
 class Level:
     def __init__(self, board, characters) -> None:
-        self.board = board
+        self.board = copy.deepcopy(board)
         # [player, clyde, blinky, inky, pinky]
         self.characters = characters
-        self.is_game_running = False
+        # self.is_game_running
+        # 0 start panel
+        # 1 running game
+        # 2 ending panel
+        self.is_game_running = STARTING_PANEL
+        self.first_start = True
+
+        # text
+        # win/lose
+        self.font_size = 100
+        self.font_color = (79, 0, 1)  # Biały kolor tekstu
+        self.font = pygame.font.Font(FONT, self.font_size)
+        self.text_render = self.font.render("Default", True, self.font_color, None)
+        self.text_rect = self.text_render.get_rect()
+        self.text_rect.center = (WIDTH // 2, HEIGHT // 2)
+        
+        # score
+
+        self.font_size_score = 50
+        self.font_score = pygame.font.Font(FONT, self.font_size_score)
+        self.text_render_score = self.font.render(("Score: " + str(self.characters[0].score)), True, self.font_color, None)
+        self.text_rect_score = self.text_render_score.get_rect()
+        self.text_rect_score.center = (WIDTH // 2, HEIGHT // 2)
+
+        self.restart_button = Button(WIDTH // 2, (HEIGHT // 2) + 100, "RESTART", self.restart)
+        self.start_button = Button(WIDTH // 2, (HEIGHT // 2) + 100, "START", self.start)
+        
+
+    def restart(self):
+        print("restart")
+        self.board = copy.deepcopy(boards)
+        self.characters[0].score = 0
+        self.characters[0].lifes = 3
+        self.is_game_running = RUNNING_GAME
+        for character in self.characters:
+            character.stop_timer()
+        self.start()
+
     def draw_board(self):
         num1 = ((HEIGHT - 50) // 33)
         num2 = (WIDTH // 30)
@@ -573,22 +683,56 @@ class Level:
                     pygame.draw.line(screen, 'white', (j * num2, i * num1 + (0.5 * num1)),
                                     (j * num2 + num2, i * num1 + (0.5 * num1)), 3)
     def start(self):
+        self.is_game_running = RUNNING_GAME
         i = 0
         for character in self.characters:
             character.rect.x = character.start_x
             character.rect.y = character.start_y
-            if i == 0:
-                pass
+            if i == 0:                
+                character.start_timer(5, character.start_delay)
+                character.started = False
+                character.current_rotation = PRAWO
+                character.animation()
             else:
-                character.current_mode = -1
                 character.start_timer(5 * i, EXIT_CAGE)
+                character.image = character.image_storage
+                character.current_mode = -1
+                character.last_move = 0
+                character.frighten_mode_first = True
+                character.eaten = True
+                character.entered_scatter_mode = False
             i += 1
     
     def win(self):
-        warunek1 = not any(1 in row for row in self.board)
-        warunek2 = not any(2 in row for row in self.board)
-        if warunek1 and warunek2:
-            self.is_game_running = False
+        not_small_dots = not any(1 in row for row in self.board)
+        not_big_dots = not any(2 in row for row in self.board)
+        if not_small_dots and not_big_dots:
+            self.characters[0].score += 200 * self.characters[0].lifes
+            self.is_game_running = ENDING_PANEL
+            PACMAN_WIN_SOUND.play()
+            self.text_update("YOU WIN")
+
+    def lose(self):
+        if self.characters[0].lifes == 0:
+            self.is_game_running = ENDING_PANEL
+            self.text_update("YOU DIED")
+    
+    def ending_timers(self):
+        for character in self.characters:
+            character.stop_timer()
+
+    def ending_panel_display(self, screen):
+        screen.blit(self.text_render, self.text_rect)
+        screen.blit(self.text_render_score, self.text_rect_score)
+
+    def text_update(self, text: str):
+            self.text_render = self.font.render(text, True, self.font_color, None)
+            self.text_rect = self.text_render.get_rect()
+            self.text_rect.center = (WIDTH // 2, (HEIGHT // 2) - 100)
+
+            self.text_render_score = self.font_score.render(("Score: " + str(self.characters[0].score)), True, self.font_color, None)
+            self.text_rect_score = self.text_render_score.get_rect()
+            self.text_rect_score.center = (WIDTH // 2, HEIGHT // 2)
 
 
 image_ghost_blue = pygame.transform.scale(pygame.image.load(os.path.join(current_dir, 'blue.png')).convert_alpha(), (45, 45))
@@ -607,41 +751,56 @@ pinky = Ghost(image_ghost_pink, 352, 410, WIDTH, HEIGHT, PINKY, 300)
 clyde = Ghost(image_ghost_red, 412, 326, 0, HEIGHT, CLYDE, 400)
 level = Level(boards, [player, clyde, blinky, inky, pinky])
 
-
 screen.fill((0, 0, 0))
 
 
 clock = pygame.time.Clock()
 
-level.start()
+
 while window_open:
     # wyłączanie gry
     for event in pygame.event.get():
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
+                level.ending_timers()
                 window_open = False
         elif event.type == pygame.QUIT:
+            level.ending_timers()
             window_open = False
 
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            mouse_pos = pygame.mouse.get_pos()
-            if button_rect.collidepoint(mouse_pos):
-                level.is_game_running = True
+        if level.is_game_running == STARTING_PANEL:
+            # if event.type == pygame.MOUSEBUTTONDOWN:
+            #     mouse_pos = pygame.mouse.get_pos()
+            #     if button_rect.collidepoint(mouse_pos):
+            #         level.is_game_running = RUNNING_GAME
+            #         START_SOUND.play()
+            level.start_button.sprawdz_klikniecie(event)
+
+        if level.is_game_running == ENDING_PANEL:
+            level.restart_button.sprawdz_klikniecie(event)
+        
 
     if counter < 19:
         counter += 1
     else:
         counter = 0
+    if level.is_game_running == STARTING_PANEL:
 
-    screen.fill((0, 0, 0))  # Czyszczenie ekranu
+            
+        screen.fill((0, 0, 0))  # Czyszczenie ekranu
 
-    # Rysowanie na ekranie
-    screen.blit(background_image, (90.5, 0))  # Wyświetlanie obrazka tła
-    screen.blit(button_image, button_rect)  # Wyświetlanie obrazka na przycisku
+        # Rysowanie na ekranie
+        screen.blit(background_image, (90.5, 0))  # Wyświetlanie obrazka tła
+        #screen.blit(button_image, button_rect)  # Wyświetlanie obrazka na przycisku
+        level.start_button.rysuj()
 
-    if level.is_game_running:
+    if level.is_game_running == RUNNING_GAME:
+        if level.first_start:
+            level.first_start = False
+            level.start()
         # Renderowanie planszy gry
         level.win()
+        level.lose()
         # Ustawienie koloru tła na czarny
         screen.fill((0, 0, 0))
         # Rysowanie planszy
@@ -658,7 +817,13 @@ while window_open:
         pinky.update()
         inky.update()
         clyde.update()
-
+    
+    if level.is_game_running == ENDING_PANEL:
+        
+        screen.fill((0, 0, 0))
+        level.ending_panel_display(screen)
+        level.restart_button.rysuj()
+        
     # Aktualizacja ekranu
     pygame.display.flip()
     clock.tick(60)
