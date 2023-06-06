@@ -5,8 +5,10 @@ import logging
 import sys
 import threading
 import random
+import copy
 
 pygame.init()
+pygame.mixer.init()
 
 window_open = True
 # wymiary okna
@@ -84,6 +86,11 @@ color = 'blue'
 
 counter = 0
 
+START_SOUND = pygame.mixer.Sound(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sound\start.wav'))
+EATING_SOUND = pygame.mixer.Sound(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sound\eating.wav'))
+PACMAN_DEATH_SOUND = pygame.mixer.Sound(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sound\pacman_death.wav'))
+PACMAN_EATGHOST_SOUND = pygame.mixer.Sound(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sound\pacman_eatghost.wav'))
+PACMAN_WIN_SOUND = pygame.mixer.Sound(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sound\pacman_win.wav'))
 
 class Collision:
     def __init__(self) -> None:
@@ -134,7 +141,7 @@ class Player(Collision):
         self.rect.y = player_y
         self.score = 0
         self.powerup = False
-        self.lifes = 1
+        self.lifes = 3
         self.current_rotation = PRAWO
         self.start_x = player_x
         self.start_y = player_y
@@ -215,10 +222,15 @@ class Player(Collision):
             level.board[CENTER_Y // TILE_Y_LEN][CENTER_X // TILE_X_LEN] = 0
             if position == 1:
                 self.score += 10
+                if not pygame.mixer.get_busy():
+                    EATING_SOUND.play()
             elif position == 2:
                 self.score += 50
                 self.powerup = True
                 self.start_timer(POWERUP_TIME, self.powerUp)
+                if not pygame.mixer.get_busy():
+                    EATING_SOUND.play()
+        
         hud.update(self.score, self.lifes)
 
     def animation(self):
@@ -310,6 +322,7 @@ class Ghost(Collision):
         pacman_center_x = (player.rect.x + CENTER_X_PLAYER) // TILE_X_LEN
         pacman_center_y = (player.rect.y + CENTER_Y_PLAYER) // TILE_Y_LEN
         if ghost_center_x == pacman_center_x and ghost_center_y == pacman_center_y and self.current_mode != EATEN_MODE and self.current_mode != FRIGHTEN_MODE:
+            PACMAN_DEATH_SOUND.play()
             player.lifes -= 1
             print("pacman zżarty")
             hud.update(player.score, player.lifes)
@@ -451,6 +464,7 @@ class Ghost(Collision):
     def eaten_mode(self): # POPRAWIC
         self.stop_timer()
         if self.eaten == False:
+            PACMAN_EATGHOST_SOUND.play()
             self.eaten = True
             self.image = IMAGE_GHOST_DEAD
             self.frighten_mode_first = False
@@ -570,7 +584,7 @@ class Ghost(Collision):
 
 class Button:
     def __init__(self, x, y, text, function):
-        self.rect = pygame.Rect(x, y, 300, 75)
+        self.rect = pygame.Rect(x - 150, y, 300, 75)
         self.text = text
         self.function = function
         self.button_color = (117, 117, 117)
@@ -588,11 +602,12 @@ class Button:
     def sprawdz_klikniecie(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.rect.collidepoint(event.pos):
+                START_SOUND.play()
                 self.function()
 
 class Level:
     def __init__(self, board, characters) -> None:
-        self.board = board
+        self.board = copy.deepcopy(board)
         # [player, clyde, blinky, inky, pinky]
         self.characters = characters
         # self.is_game_running
@@ -620,11 +635,12 @@ class Level:
         self.text_rect_score.center = (WIDTH // 2, HEIGHT // 2)
 
         self.restart_button = Button(WIDTH // 2, (HEIGHT // 2) + 100, "RESTART", self.restart)
+        self.start_button = Button(WIDTH // 2, (HEIGHT // 2) + 100, "START", self.start)
         
 
     def restart(self):
         print("restart")
-        self.board = boards
+        self.board = copy.deepcopy(boards)
         self.characters[0].score = 0
         self.characters[0].lifes = 3
         self.is_game_running = RUNNING_GAME
@@ -667,6 +683,7 @@ class Level:
                     pygame.draw.line(screen, 'white', (j * num2, i * num1 + (0.5 * num1)),
                                     (j * num2 + num2, i * num1 + (0.5 * num1)), 3)
     def start(self):
+        self.is_game_running = RUNNING_GAME
         i = 0
         for character in self.characters:
             character.rect.x = character.start_x
@@ -692,7 +709,7 @@ class Level:
         if not_small_dots and not_big_dots:
             self.characters[0].score += 200 * self.characters[0].lifes
             self.is_game_running = ENDING_PANEL
-
+            PACMAN_WIN_SOUND.play()
             self.text_update("YOU WIN")
 
     def lose(self):
@@ -734,7 +751,6 @@ pinky = Ghost(image_ghost_pink, 352, 410, WIDTH, HEIGHT, PINKY, 300)
 clyde = Ghost(image_ghost_red, 412, 326, 0, HEIGHT, CLYDE, 400)
 level = Level(boards, [player, clyde, blinky, inky, pinky])
 
-
 screen.fill((0, 0, 0))
 
 
@@ -753,10 +769,12 @@ while window_open:
             window_open = False
 
         if level.is_game_running == STARTING_PANEL:
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                mouse_pos = pygame.mouse.get_pos()
-                if button_rect.collidepoint(mouse_pos):
-                    level.is_game_running = RUNNING_GAME
+            # if event.type == pygame.MOUSEBUTTONDOWN:
+            #     mouse_pos = pygame.mouse.get_pos()
+            #     if button_rect.collidepoint(mouse_pos):
+            #         level.is_game_running = RUNNING_GAME
+            #         START_SOUND.play()
+            level.start_button.sprawdz_klikniecie(event)
 
         if level.is_game_running == ENDING_PANEL:
             level.restart_button.sprawdz_klikniecie(event)
@@ -773,7 +791,8 @@ while window_open:
 
         # Rysowanie na ekranie
         screen.blit(background_image, (90.5, 0))  # Wyświetlanie obrazka tła
-        screen.blit(button_image, button_rect)  # Wyświetlanie obrazka na przycisku
+        #screen.blit(button_image, button_rect)  # Wyświetlanie obrazka na przycisku
+        level.start_button.rysuj()
 
     if level.is_game_running == RUNNING_GAME:
         if level.first_start:
