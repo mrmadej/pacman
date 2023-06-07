@@ -147,6 +147,7 @@ class Player(Collision):
         self.start_y = player_y
         self.timer = None
         self.started = False
+        self.last_move = lambda: self.rect.move_ip([2, 0])
 
     def start_timer(self, duration, callback):
         self.stop_timer()
@@ -175,44 +176,77 @@ class Player(Collision):
         print ("Timer expired packman - powerup")
 
     def _get_event(self, key_pressed):
-
-        self.position()
-        # need fit to grid horizontal if running up or down or vertical if running left or right
         center_x = self.rect.x + CENTER_X_PLAYER
         center_y = self.rect.y + CENTER_Y_PLAYER
-        x_offset = center_x % TILE_X_LEN
-        y_offset = center_y % TILE_Y_LEN
-        move_x = - (x_offset - TILE_X_LEN // 2)
-        move_y = - (y_offset - TILE_Y_LEN // 2)
-        
-        if key_pressed[pygame.K_LEFT]:
-            if self.possible_turns[LEWO]:
-                self.current_rotation = LEWO
-                if center_x > STEP:
-                    self.rect.move_ip([-STEP, move_y])
-                else:
-                    self.rect.move_ip([WIDTH - STEP, move_y])
-        if key_pressed[pygame.K_RIGHT]:
-            if self.possible_turns[PRAWO]:
-                self.current_rotation = PRAWO
-                if center_x < WIDTH - STEP:
-                    self.rect.move_ip([STEP, move_y])
-                else:
-                    self.rect.move_ip([-WIDTH, move_y])
-        if key_pressed[pygame.K_UP]:
-            if self.possible_turns[GORA]:
-                self.current_rotation = GORA
-                if center_y > STEP:
-                    self.rect.move_ip([move_x, -STEP])
-                else:
-                    self.rect.move_ip([move_x, HEIGHT - MARGIN - STEP - 1])
-        if key_pressed[pygame.K_DOWN]:
-            if self.possible_turns[DOL]:
-                self.current_rotation = DOL
-                if center_y < HEIGHT - MARGIN - STEP:
-                    self.rect.move_ip([move_x, STEP])
-                else:
-                    self.rect.move_ip([move_x, -HEIGHT + MARGIN])
+        x_in_center = center_x % TILE_X_LEN == TILE_X_LEN // 2
+        y_in_center = center_y % TILE_Y_LEN == TILE_Y_LEN // 2
+        self.position()
+
+
+        if x_in_center and y_in_center:
+            if key_pressed[pygame.K_LEFT]:
+                if self.possible_turns[LEWO]:
+                    self.current_rotation = LEWO
+                    self.rect.move_ip([-2, 0])
+                    self.last_move = lambda: self.rect.move_ip([-2, 0])
+            if key_pressed[pygame.K_RIGHT]:
+                if self.possible_turns[PRAWO]:
+                    self.current_rotation = PRAWO
+                    self.rect.move_ip([2, 0])
+                    self.last_move = lambda: self.rect.move_ip([2, 0])
+            if key_pressed[pygame.K_UP]:
+                if self.possible_turns[GORA]:
+                    self.current_rotation = GORA
+                    self.rect.move_ip([0, -2])
+                    self.last_move = lambda: self.rect.move_ip([0, -2])
+            if key_pressed[pygame.K_DOWN]:
+                if self.possible_turns[DOL]:
+                    self.current_rotation = DOL
+                    self.rect.move_ip([0, 2])
+                    self.last_move = lambda: self.rect.move_ip([0, 2])
+            if self.possible_turns[self.current_rotation]:
+                self.last_move()
+
+        else:
+            if self.possible_turns[self.current_rotation]:
+                self.last_move()
+        # need fit to grid horizontal if running up or down or vertical if running left or right
+
+        # center_x = self.rect.x + CENTER_X_PLAYER
+        # center_y = self.rect.y + CENTER_Y_PLAYER
+        # x_offset = center_x % TILE_X_LEN
+        # y_offset = center_y % TILE_Y_LEN
+        # move_x = - (x_offset - TILE_X_LEN // 2)
+        # move_y = - (y_offset - TILE_Y_LEN // 2)
+
+        # if key_pressed[pygame.K_LEFT]:
+        #     if self.possible_turns[LEWO]:
+        #         self.current_rotation = LEWO
+        #         if center_x > STEP:
+        #             self.rect.move_ip([-STEP, move_y])
+        #         else:
+        #             self.rect.move_ip([WIDTH - STEP, move_y])
+        # if key_pressed[pygame.K_RIGHT]:
+        #     if self.possible_turns[PRAWO]:
+        #         self.current_rotation = PRAWO
+        #         if center_x < WIDTH - STEP:
+        #             self.rect.move_ip([STEP, move_y])
+        #         else:
+        #             self.rect.move_ip([-WIDTH, move_y])
+        # if key_pressed[pygame.K_UP]:
+        #     if self.possible_turns[GORA]:
+        #         self.current_rotation = GORA
+        #         if center_y > STEP:
+        #             self.rect.move_ip([move_x, -STEP])
+        #         else:
+        #             self.rect.move_ip([move_x, HEIGHT - MARGIN - STEP - 1])
+        # if key_pressed[pygame.K_DOWN]:
+        #     if self.possible_turns[DOL]:
+        #         self.current_rotation = DOL
+        #         if center_y < HEIGHT - MARGIN - STEP:
+        #             self.rect.move_ip([move_x, STEP])
+        #         else:
+        #             self.rect.move_ip([move_x, -HEIGHT + MARGIN])
 
     def eating(self):
         CENTER_X = self.rect.x + CENTER_X_PLAYER
@@ -578,7 +612,6 @@ class Ghost(Collision):
         self.change_mode()
 
     def center_check(self) -> bool:
-
         return (self.rect.x + CENTER_X_PLAYER) % TILE_X_LEN == TILE_X_LEN // 2  and (self.rect.y + CENTER_Y_PLAYER) % TILE_Y_LEN == TILE_Y_LEN // 2
 
 
@@ -693,6 +726,7 @@ class Level:
                 character.started = False
                 character.current_rotation = PRAWO
                 character.animation()
+                character.last_move = lambda: character.rect.move_ip([2, 0])
             else:
                 character.start_timer(5 * i, EXIT_CAGE)
                 character.image = character.image_storage
